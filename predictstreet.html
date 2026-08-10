@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PredictStreet users</title>
-  <link rel="stylesheet" href="styles.css?v=2" />
+  <link rel="stylesheet" href="styles.css?v=3" />
 </head>
 <body data-theme="light" data-aesthetic="institutional" data-density="cozy">
   <script>
@@ -31,9 +31,9 @@
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
   <script src="https://unpkg.com/html-to-image@1.11.13/dist/html-to-image.js"></script>
 
-  <script type="text/babel" src="charts.jsx?v=2"></script>
-  <script type="text/babel" src="widgets.jsx?v=2"></script>
-  <script type="text/babel" src="adi.jsx?v=2"></script>
+  <script type="text/babel" src="charts.jsx?v=3"></script>
+  <script type="text/babel" src="widgets.jsx?v=3"></script>
+  <script type="text/babel" src="adi.jsx?v=3"></script>
 
   <script type="text/babel" data-presets="env,react">
     function lastComplete(rows) {
@@ -61,6 +61,7 @@
       const stickiness = last.mau > 0 ? (last.dau / last.mau) * 100 : null;
       const activation = (last.mau / ps.registered_total) * 100;
       const currentMonth = ps.monthly[ps.monthly.length - 1];
+      const ret = ps.retention;
 
       return (
         <React.Fragment>
@@ -167,6 +168,101 @@
               )}
             </ChartPanel>
           </div>
+
+          {ret && (
+            <React.Fragment>
+              <div className="grid grid-4" style={{ marginTop: 16, marginBottom: 16 }}>
+                <Metric label="Signed up" value={fmtCount(ret.total_signed_up)}
+                  footer="Everyone, all time" />
+                <Metric label="Ever did anything"
+                  value={fmtCount(ret.ever_active)}
+                  footer={`${fmtPct(ret.ever_active_pct, 1)} of sign-ups`} />
+                <Metric label="Came back another day"
+                  value={fmtCount(ret.returned)}
+                  footer={`${fmtPct(ret.returned_pct, 1)} of sign-ups`} />
+                <Metric label="Still there after a month"
+                  value={fmtCount(ret.still_active_30d)}
+                  footer={`${fmtPct(ret.still_active_30d_pct, 2)} of sign-ups`} />
+              </div>
+
+              <ChartPanel
+                title="Do people come back?"
+                subtitle="Grouped by the week they signed up"
+                badge={`${ret.cohorts.length} weeks`}
+                legend={[
+                  { name: 'Signed up that week', color: 'var(--chart-1)' },
+                  { name: 'Came back later (%)', color: 'var(--chart-3)' },
+                ]}
+                caption={<React.Fragment>
+                  <b>Almost nobody comes back.</b> Each bar is a week's worth of new
+                  people. The line is the share of them who used it again on a later
+                  day. The World Cup weeks brought the most people and kept very few
+                  of them.
+                </React.Fragment>}
+                height={280}
+              >
+                {(w, h) => (
+                  <AreaChart
+                    width={w} height={h}
+                    labels={ret.cohorts.map(c => fmtDate(c.week))}
+                    formatter={fmtNum}
+                    series={[
+                      { name: 'Signed up that week', color: 'var(--chart-1)',
+                        values: ret.cohorts.map(c => c.signed_up) },
+                      { name: 'Came back later (%)', color: 'var(--chart-3)',
+                        values: ret.cohorts.map(c => c.returned_pct || 0) },
+                    ]}
+                  />
+                )}
+              </ChartPanel>
+
+              <TablePanel
+                title="Week by week, did they stay?"
+                subtitle="Each row is everyone who signed up that week"
+                caption={<React.Fragment>
+                  <b>Read across a row to follow one group of people over time.</b>{' '}
+                  Each percentage is measured from each person's own sign-up day. A
+                  dash means that group has not been around long enough yet, so there
+                  is nothing to report rather than nothing happening.
+                </React.Fragment>}
+              >
+                <table className="datatable">
+                  <thead>
+                    <tr>
+                      <th>Week they signed up</th>
+                      <th className="num">People</th>
+                      <th className="num">Did anything</th>
+                      <th className="num">Came back</th>
+                      <th className="num col-hide-sm">In their first week</th>
+                      <th className="num col-hide-sm">Days 8 to 30</th>
+                      <th className="num col-hide-sm">After a month</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...ret.cohorts].reverse().map(c => (
+                      <tr key={c.week}>
+                        <td>{c.week}</td>
+                        <td className="num">{fmtCount(c.signed_up)}</td>
+                        <td className="num">{fmtPct(c.ever_active_pct, 1)}</td>
+                        <td className="num">{fmtPct(c.returned_pct, 1)}</td>
+                        <td className="num col-hide-sm">{fmtPct(c.d1_7_pct, 1)}</td>
+                        <td className="num col-hide-sm">
+                          {c.d8_30_pct === null
+                            ? <span title={`Only ${c.days_elapsed} days old`}>n/a</span>
+                            : fmtPct(c.d8_30_pct, 1)}
+                        </td>
+                        <td className="num col-hide-sm">
+                          {c.d31_plus_pct === null
+                            ? <span title={`Only ${c.days_elapsed} days old`}>n/a</span>
+                            : fmtPct(c.d31_plus_pct, 1)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </TablePanel>
+            </React.Fragment>
+          )}
 
           <div className="grid grid-2" style={{ marginTop: 16 }}>
             <TablePanel

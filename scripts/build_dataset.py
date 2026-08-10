@@ -180,11 +180,14 @@ def build_predictstreet(block_ts, chain_senders):
 
     # registrations per day
     reg_daily = collections.Counter()
+    vault_created_day = {}
     undated = 0
     for v in vaults:
         t = block_ts.get(v["block"])
         if t:
-            reg_daily[day_of(t)] += 1
+            d = dt.datetime.fromtimestamp(t, dt.UTC).date()
+            reg_daily[d.isoformat()] += 1
+            vault_created_day[v["vault"]] = d
         else:
             undated += 1
     if undated:
@@ -200,14 +203,16 @@ def build_predictstreet(block_ts, chain_senders):
     act_daily = collections.defaultdict(set)
     act_events = collections.Counter()
     event_mix = collections.Counter()
+    vault_active_days = collections.defaultdict(set)
     for r in read_jsonl_gz(act_path):
         t = block_ts.get(r["n"])
         if not t:
             continue
-        d = day_of(t)
-        act_daily[d].add(r["v"])
-        act_events[d] += 1
+        d = dt.datetime.fromtimestamp(t, dt.UTC).date()
+        act_daily[d.isoformat()].add(r["v"])
+        act_events[d.isoformat()] += 1
         event_mix[r["s"]] += 1
+        vault_active_days[r["v"]].add(d)
 
     if not reg_daily and not act_daily:
         return None
@@ -256,6 +261,78 @@ def build_predictstreet(block_ts, chain_senders):
         "vaults_that_sent_txs": len(vaults_as_senders),
         "signer_visible_pct": round(100 * len(self_signed) / max(len(owners), 1), 2),
         "event_mix": [{"sig": s, "count": c} for s, c in event_mix.most_common()],
+        "retention": build_retention(
+            vault_created_day, vault_active_days,
+            max(vault_created_day.values()) if vault_created_day else dt.date.today()),
+    }
+
+
+def build_retention(vault_created_day, vault_active_days, today):
+    """Cohort retention by sign-up week.
+
+    Answers the question the headline numbers provoke: of the people who signed
+    up, how many came back? Cohorts are ISO weeks of the sign-up day, and every
+    window is measured from each user's own sign-up day, not from the week.
+
+    Windows a cohort has not lived through yet are reported as null rather than
+    zero. A cohort that signed up three days ago has not failed its 8-to-30 day
+    window, it simply has not reached it, and showing 0% there would read as
+    catastrophic churn when it is an artefact of the calendar.
+    """
+    cohorts = collections.defaultdict(lambda: {
+        "signed_up": 0, "ever": 0, "returned": 0, "d1_7": 0, "d8_30": 0, "d31_plus": 0})
+
+    for vault, created in vault_created_day.items():
+        wk = (created - dt.timedelta(days=created.weekday())).isoformat()
+        c = cohorts[wk]
+        c["signed_up"] += 1
+        days = vault_active_days.get(vault)
+        if not days:
+            continue
+        c["ever"] += 1
+        later = [d for d in days if d > created]
+        if later:
+            c["returned"] += 1
+        if any(1 <= (d - created).days <= 7 for d in later):
+            c["d1_7"] += 1
+        if any(8 <= (d - created).days <= 30 for d in later):
+            c["d8_30"] += 1
+        if any((d - created).days > 30 for d in later):
+            c["d31_plus"] += 1
+
+    def pct(n, d):
+        return round(100 * n / d, 2) if d else None
+
+    out = []
+    for wk in sorted(cohorts):
+        c = cohorts[wk]
+        wk_date = dt.date.fromisoformat(wk)
+        # A cohort's youngest member signed up on the last day of that week.
+        age = (today - min(wk_date + dt.timedelta(days=6), today)).days
+        n = c["signed_up"]
+        out.append({
+            "week": wk,
+            "signed_up": n,
+            "ever_active": c["ever"],
+            "ever_active_pct": pct(c["ever"], n),
+            "returned": c["returned"],
+            "returned_pct": pct(c["returned"], n),
+            "d1_7_pct": pct(c["d1_7"], n),
+            "d8_30_pct": pct(c["d8_30"], n) if age >= 30 else None,
+            "d31_plus_pct": pct(c["d31_plus"], n) if age >= 31 else None,
+            "days_elapsed": age,
+        })
+
+    total = sum(c["signed_up"] for c in cohorts.values())
+    return {
+        "cohorts": out,
+        "total_signed_up": total,
+        "ever_active": sum(c["ever"] for c in cohorts.values()),
+        "ever_active_pct": pct(sum(c["ever"] for c in cohorts.values()), total),
+        "returned": sum(c["returned"] for c in cohorts.values()),
+        "returned_pct": pct(sum(c["returned"] for c in cohorts.values()), total),
+        "still_active_30d": sum(c["d31_plus"] for c in cohorts.values()),
+        "still_active_30d_pct": pct(sum(c["d31_plus"] for c in cohorts.values()), total),
     }
 
 
