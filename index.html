@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ADI active users</title>
+  <link rel="stylesheet" href="styles.css?v=1" />
+</head>
+<body data-theme="light" data-aesthetic="institutional" data-density="cozy">
+  <script>
+  (function () {
+    try {
+      var t = localStorage.getItem('theme');
+      var a = localStorage.getItem('aesthetic');
+      var d = localStorage.getItem('density');
+      if (t) document.body.setAttribute('data-theme', t);
+      if (a) document.body.setAttribute('data-aesthetic', a);
+      if (d) document.body.setAttribute('data-density', d);
+    } catch (e) {}
+  })();
+  </script>
+
+  <div id="root" class="shell">
+    <div class="boot-splash">
+      <img class="boot-splash-mark" src="assets/brand/datum-loop.webp" alt="Datum Labs" />
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+  <script src="https://unpkg.com/html-to-image@1.11.13/dist/html-to-image.js"></script>
+
+  <script type="text/babel" src="charts.jsx?v=1"></script>
+  <script type="text/babel" src="widgets.jsx?v=1"></script>
+  <script type="text/babel" src="adi.jsx?v=1"></script>
+
+  <script type="text/babel" data-presets="env,react">
+    function lastComplete(rows) {
+      for (let i = rows.length - 1; i >= 0; i--) if (!rows[i].partial) return rows[i];
+      return rows[rows.length - 1];
+    }
+
+    function Overview({ d }) {
+      const ps = d.predictstreet;
+      const st = d.staking;
+      const chain = d.chain;
+
+      const psLast = ps ? lastComplete(ps.series) : null;
+      const chainLast = lastComplete(chain.series);
+      const asOf = (psLast || chainLast || {}).date;
+
+      const recent = ps ? ps.series.slice(-30) : [];
+      const peakDau = recent.length ? Math.max.apply(null, recent.map(r => r.dau)) : 0;
+      const stickiness = psLast && psLast.mau > 0 ? (psLast.dau / psLast.mau) * 100 : null;
+      const activation = ps && psLast ? (psLast.mau / ps.registered_total) * 100 : null;
+
+      const psWindow = ps ? ps.series : [];
+      const chainWindow = chain.series;
+
+      return (
+        <React.Fragment>
+          <div className="panel" style={{ marginBottom: 16 }}>
+            <PanelHead title="Why these numbers are not signer counts" />
+            <div className="panel-caption">
+              <b>Counting transaction signers would miss almost everyone.</b>{' '}
+              {ps ? (
+                <React.Fragment>
+                  PredictStreet relays user actions through a small pool of operator
+                  wallets, and its per-user vaults never send transactions themselves.
+                  Of {fmtCount(ps.distinct_owners)} registered users, only{' '}
+                  {fmtCount(ps.owners_that_self_signed)} have ever signed a transaction
+                  directly, which is {fmtPct(ps.signer_visible_pct, 2)}. The rest are
+                  invisible to a signer count but fully visible at the vault level.
+                </React.Fragment>
+              ) : (
+                'PredictStreet relays user actions through operator wallets, so the signer count measures infrastructure rather than people.'
+              )}{' '}
+              <a href="methodology.html" style={{ color: 'var(--orange)' }}>How this is measured</a>
+            </div>
+          </div>
+
+          <div className="grid grid-4" style={{ marginBottom: 16 }}>
+            <Metric label="PredictStreet registered users"
+              value={fmtCount(ps ? ps.registered_total : null)}
+              footer="Cumulative user vaults created" />
+            <Metric label="PredictStreet MAU"
+              value={fmtCount(psLast ? psLast.mau : null)}
+              footer={`Trailing ${d.meta.rolling_window_days} day unique vaults`} />
+            <Metric label="PredictStreet DAU"
+              value={fmtCount(psLast ? psLast.dau : null)}
+              footer={`Peak ${fmtCount(peakDau)} in the last 30 days`} />
+            <Metric label="Staking participants"
+              value={fmtCount(st ? st.unique_stakers : null)}
+              footer={st && st.total_staked_usd
+                ? `${fmtUSD(st.total_staked_usd)} staked on Ethereum`
+                : 'Unique stakers on Ethereum'} />
+          </div>
+
+          <p className="page-subtitle" style={{ margin: '-6px 0 16px' }}>
+            Daily figures as of {asOf || 'n/a'}, the last complete UTC day.
+            {d.partial_day ? ` ${d.partial_day} is still in progress.` : ''}
+          </p>
+
+          <div className="grid grid-4" style={{ marginBottom: 16 }}>
+            <Metric label="Activation rate"
+              value={activation === null ? 'n/a' : fmtPct(activation, 1)}
+              footer="MAU divided by registered users" />
+            <Metric label="Stickiness"
+              value={stickiness === null ? 'n/a' : fmtPct(stickiness, 2)}
+              footer="DAU divided by MAU" />
+            <Metric label="ADI Chain transactions"
+              value={fmtCount(chain.total_txs)}
+              footer="All time since genesis" />
+            <Metric label="Distinct signers all time"
+              value={fmtCount(chain.total_distinct_senders)}
+              footer="Every address that ever sent a transaction" />
+          </div>
+
+          {ps && (
+            <ChartPanel
+              title="Registered users against active users"
+              subtitle="PredictStreet"
+              badge={`${fmtCount(ps.series.length)} days`}
+              legend={[{ name: 'Registered (cumulative)', color: 'var(--chart-1)' }, { name: 'MAU (30d)', color: 'var(--chart-2)' }, { name: 'DAU', color: 'var(--chart-3)' }]}
+              caption={<React.Fragment>
+                <b>Signups ran far ahead of usage.</b> Registration is a one time
+                event, so the cumulative line only rises. Whether those accounts
+                came back is the gap between it and the two active-user lines.
+              </React.Fragment>}
+            >
+              {(w, h) => (
+                <AreaChart
+                  width={w} height={h}
+                  labels={labelsOf(psWindow)}
+                  formatter={fmtNum}
+                  series={[
+                    { name: 'Registered (cumulative)', color: 'var(--chart-1)', values: pick(psWindow, 'registered_cumulative') },
+                    { name: 'MAU (30d)', color: 'var(--chart-2)', values: pick(psWindow, 'mau') },
+                    { name: 'DAU', color: 'var(--chart-3)', values: pick(psWindow, 'dau') },
+                  ]}
+                />
+              )}
+            </ChartPanel>
+          )}
+
+          <div className="grid grid-2" style={{ marginTop: 16 }}>
+            {ps && (
+              <ChartPanel
+                title="New registrations per day"
+                subtitle="VaultCreated events"
+              legend={[{ name: 'New users', color: 'var(--chart-1)' }]}
+                caption={<React.Fragment>
+                  <b>Signups per day, from VaultCreated events.</b> The shape tracks
+                  the World Cup, which is what makes the trailing MAU look healthier
+                  than current engagement is.
+                </React.Fragment>}
+                height={240}
+              >
+                {(w, h) => (
+                  <AreaChart
+                    width={w} height={h}
+                    labels={labelsOf(psWindow)}
+                    formatter={fmtNum}
+                    series={[{ name: 'New users', color: 'var(--chart-1)', values: pick(psWindow, 'new_users') }]}
+                  />
+                )}
+              </ChartPanel>
+            )}
+
+            <ChartPanel
+              title="ADI Chain throughput"
+              subtitle="Transactions per day"
+              legend={[{ name: 'Transactions', color: 'var(--chart-4)' }]}
+              caption={<React.Fragment>
+                <b>Volume is not users.</b> Transaction count rises with relayer
+                batching, so read it as chain load rather than as demand.
+              </React.Fragment>}
+              height={240}
+            >
+              {(w, h) => (
+                <AreaChart
+                  width={w} height={h}
+                  labels={labelsOf(chainWindow)}
+                  formatter={fmtNum}
+                  series={[{ name: 'Transactions', color: 'var(--chart-4)', values: pick(chainWindow, 'txs') }]}
+                />
+              )}
+            </ChartPanel>
+          </div>
+
+          {st && st.leaderboard && st.leaderboard.length > 0 && (
+            <div className="grid grid-2" style={{ marginTop: 16 }}>
+              <ChartPanel
+                title="Staking concentration"
+                subtitle="Share of staked ADI"
+                badge={`${st.unique_stakers} stakers`}
+                caption={<React.Fragment>
+                  <b>One address holds most of the pool.</b> With only{' '}
+                  {st.unique_stakers} participants, the programme total is not a
+                  measure of broad participation.
+                </React.Fragment>}
+                height={260}
+              >
+                {(w, h) => (
+                  <Donut
+                    size={Math.min(220, Math.max(160, w * 0.35))}
+                    thickness={30}
+                    formatter={fmtUSD}
+                    centerLabel={st.total_staked_usd ? fmtUSD(st.total_staked_usd) : undefined}
+                    items={st.leaderboard.slice(0, 5).map((r, i) => ({
+                      name: shortAddr(r.address),
+                      value: r.staked_usd || r.staked_adi,
+                      color: `var(--chart-${i + 1})`,
+                    })).concat(st.leaderboard.length > 5 ? [{
+                      name: 'Others',
+                      value: st.leaderboard.slice(5).reduce((a, r) => a + (r.staked_usd || r.staked_adi), 0),
+                      color: 'var(--chart-6)',
+                    }] : [])}
+                  />
+                )}
+              </ChartPanel>
+
+              <ChartPanel
+                title="Cumulative stakers"
+                subtitle="ADI HODLER programme"
+              legend={[{ name: 'Cumulative stakers', color: 'var(--chart-5)' }]}
+                caption={<React.Fragment>
+                  <b>Participation stalled after the opening week.</b> The programme
+                  opened on {st.series[0] ? st.series[0].date : 'n/a'} and has added
+                  very few addresses since.
+                </React.Fragment>}
+                height={260}
+              >
+                {(w, h) => (
+                  <AreaChart
+                    width={w} height={h}
+                    labels={labelsOf(st.series)}
+                    formatter={fmtNum}
+                    series={[{ name: 'Cumulative stakers', color: 'var(--chart-5)', values: pick(st.series, 'cumulative_stakers') }]}
+                  />
+                )}
+              </ChartPanel>
+            </div>
+          )}
+        </React.Fragment>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(
+      <Page active="overview"
+        title="ADI active users"
+        subtitle="Daily and monthly active users across ADI Chain, PredictStreet and the ADI HODLER staking programme."
+        render={(d) => <Overview d={d} />} />
+    );
+  </script>
+</body>
+</html>

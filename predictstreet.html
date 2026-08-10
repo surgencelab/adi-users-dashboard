@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PredictStreet users</title>
+  <link rel="stylesheet" href="styles.css?v=1" />
+</head>
+<body data-theme="light" data-aesthetic="institutional" data-density="cozy">
+  <script>
+  (function () {
+    try {
+      var t = localStorage.getItem('theme');
+      var a = localStorage.getItem('aesthetic');
+      var d = localStorage.getItem('density');
+      if (t) document.body.setAttribute('data-theme', t);
+      if (a) document.body.setAttribute('data-aesthetic', a);
+      if (d) document.body.setAttribute('data-density', d);
+    } catch (e) {}
+  })();
+  </script>
+
+  <div id="root" class="shell">
+    <div class="boot-splash">
+      <img class="boot-splash-mark" src="assets/brand/datum-loop.webp" alt="Datum Labs" />
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+  <script src="https://unpkg.com/html-to-image@1.11.13/dist/html-to-image.js"></script>
+
+  <script type="text/babel" src="charts.jsx?v=1"></script>
+  <script type="text/babel" src="widgets.jsx?v=1"></script>
+  <script type="text/babel" src="adi.jsx?v=1"></script>
+
+  <script type="text/babel" data-presets="env,react">
+    function lastComplete(rows) {
+      for (let i = rows.length - 1; i >= 0; i--) if (!rows[i].partial) return rows[i];
+      return rows[rows.length - 1];
+    }
+
+    function PredictStreet({ d }) {
+      const ps = d.predictstreet;
+      if (!ps) {
+        return (
+          <div className="panel"><div className="panel-body">
+            No PredictStreet data in this build. Run <code>python3 scripts/refresh_all.py</code>.
+          </div></div>
+        );
+      }
+
+      const s = ps.series;
+      const last = lastComplete(s);
+      const peakDau = Math.max.apply(null, s.map(r => r.dau));
+      const peakDauDay = (s.find(r => r.dau === peakDau) || {}).date;
+      const peakMau = Math.max.apply(null, s.map(r => r.mau));
+      const peakReg = Math.max.apply(null, s.map(r => r.new_users));
+      const peakRegDay = (s.find(r => r.new_users === peakReg) || {}).date;
+      const stickiness = last.mau > 0 ? (last.dau / last.mau) * 100 : null;
+      const activation = (last.mau / ps.registered_total) * 100;
+      const currentMonth = ps.monthly[ps.monthly.length - 1];
+
+      return (
+        <React.Fragment>
+          <div className="panel" style={{ marginBottom: 16 }}>
+            <PanelHead title="How these users are counted" />
+            <div className="panel-caption">
+              <b>Every account gets its own vault contract, so users are countable exactly.</b>{' '}
+              The factory emits <code>VaultCreated</code> once per account, and every later
+              event names that vault. Vaults are plain contracts, not smart accounts:{' '}
+              {ps.vaults_that_sent_txs === 0
+                ? 'not one of them has ever sent a transaction'
+                : `${fmtCount(ps.vaults_that_sent_txs)} have sent a transaction`}
+              , which is why these counts come from event topics rather than senders.
+            </div>
+          </div>
+
+          <div className="grid grid-4" style={{ marginBottom: 16 }}>
+            <Metric label="Registered users" value={fmtCount(ps.registered_total)}
+              footer="Cumulative vaults created" />
+            <Metric label="MAU, 30 day rolling" value={fmtCount(last.mau)}
+              footer={`Peak ${fmtCount(peakMau)}`} />
+            <Metric label={`DAU on ${last.date}`} value={fmtCount(last.dau)}
+              footer={`Peak ${fmtCount(peakDau)} on ${peakDauDay || 'n/a'}`} />
+            <Metric label="Visible to a signer count" value={fmtPct(ps.signer_visible_pct, 2)}
+              footer={`${fmtCount(ps.owners_that_self_signed)} owners ever self-signed`} />
+          </div>
+
+          <div className="grid grid-4" style={{ marginBottom: 16 }}>
+            <Metric label="Activation" value={fmtPct(activation, 1)}
+              footer="MAU divided by registered users" />
+            <Metric label="Stickiness" value={stickiness === null ? 'n/a' : fmtPct(stickiness, 2)}
+              footer="DAU divided by MAU" />
+            <Metric label="Active this month"
+              value={currentMonth ? fmtCount(currentMonth.mau) : 'n/a'}
+              footer={currentMonth ? `Calendar month ${currentMonth.month}` : 'n/a'} />
+            <Metric label="Distinct owners" value={fmtCount(ps.distinct_owners)}
+              footer="One vault per owner address" />
+          </div>
+
+          <ChartPanel
+            title="Active users"
+            subtitle="Daily and trailing 30 day"
+              legend={[{ name: 'MAU (30d)', color: 'var(--chart-2)' }, { name: 'DAU', color: 'var(--chart-3)' }]}
+            badge={`${fmtCount(s.length)} days`}
+            caption={<React.Fragment>
+              <b>The rolling MAU lags reality by design.</b> It still carries the
+              tournament weeks forward, so read the daily line for where engagement
+              sits now and the monthly table below for a clean month boundary.
+            </React.Fragment>}
+          >
+            {(w, h) => (
+              <AreaChart
+                width={w} height={h}
+                labels={labelsOf(s)}
+                formatter={fmtNum}
+                series={[
+                  { name: 'MAU (30d)', color: 'var(--chart-2)', values: pick(s, 'mau') },
+                  { name: 'DAU', color: 'var(--chart-3)', values: pick(s, 'dau') },
+                ]}
+              />
+            )}
+          </ChartPanel>
+
+          <div className="grid grid-2" style={{ marginTop: 16 }}>
+            <ChartPanel
+              title="Registrations"
+              subtitle="New vaults per day"
+              legend={[{ name: 'New users', color: 'var(--chart-1)' }]}
+              badge={`Peak ${fmtCount(peakReg)}`}
+              caption={<React.Fragment>
+                <b>Acquisition, not retention.</b> Peak signups landed on{' '}
+                {peakRegDay || 'n/a'}. A registration is a one time event, so this
+                says nothing about whether those accounts came back.
+              </React.Fragment>}
+              height={250}
+            >
+              {(w, h) => (
+                <AreaChart
+                  width={w} height={h}
+                  labels={labelsOf(s)}
+                  formatter={fmtNum}
+                  series={[{ name: 'New users', color: 'var(--chart-1)', values: pick(s, 'new_users') }]}
+                />
+              )}
+            </ChartPanel>
+
+            <ChartPanel
+              title="On-chain actions"
+              subtitle="Events attributable to a vault"
+              legend={[{ name: 'Actions', color: 'var(--chart-4)' }]}
+              caption={<React.Fragment>
+                <b>Volume of activity, not people.</b> A single user can generate many
+                events in a session, so this rises and falls faster than the user count.
+              </React.Fragment>}
+              height={250}
+            >
+              {(w, h) => (
+                <AreaChart
+                  width={w} height={h}
+                  labels={labelsOf(s)}
+                  formatter={fmtNum}
+                  series={[{ name: 'Actions', color: 'var(--chart-4)', values: pick(s, 'actions') }]}
+                />
+              )}
+            </ChartPanel>
+          </div>
+
+          <div className="grid grid-2" style={{ marginTop: 16 }}>
+            <TablePanel
+              title="Monthly"
+              subtitle="Calendar month"
+              caption={<React.Fragment>
+                <b>The cleaner read on engagement.</b> Unlike the rolling window,
+                a calendar month cannot borrow activity from the previous one.
+              </React.Fragment>}
+            >
+              <table className="datatable">
+                <thead>
+                  <tr>
+                    <th>Month</th>
+                    <th className="num">Active users</th>
+                    <th className="num">New users</th>
+                    <th className="num col-hide-sm">Active per new</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ps.monthly.map(m => (
+                    <tr key={m.month}>
+                      <td>{m.month}</td>
+                      <td className="num">{fmtCount(m.mau)}</td>
+                      <td className="num">{fmtCount(m.new_users)}</td>
+                      <td className="num col-hide-sm">
+                        {m.new_users ? (m.mau / m.new_users).toFixed(2) : 'n/a'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </TablePanel>
+
+            <TablePanel
+              title="Event mix"
+              subtitle="By selector"
+              badge={`${ps.event_mix.length} events`}
+              caption={<React.Fragment>
+                <b>The contracts are unverified, so events are shown by selector.</b>{' '}
+                Attribution does not depend on naming them: any indexed topic matching
+                a known vault counts as that user acting.
+              </React.Fragment>}
+            >
+              <table className="datatable">
+                <thead>
+                  <tr><th>Event selector</th><th className="num">Occurrences</th><th className="num col-hide-sm">Share</th></tr>
+                </thead>
+                <tbody>
+                  {ps.event_mix.map(e => {
+                    const total = ps.event_mix.reduce((a, x) => a + x.count, 0);
+                    return (
+                      <tr key={e.sig}>
+                        <td className="mono">{e.sig}</td>
+                        <td className="num">{fmtCount(e.count)}</td>
+                        <td className="num col-hide-sm">{fmtPct(total ? (100 * e.count / total) : 0, 1)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </TablePanel>
+          </div>
+        </React.Fragment>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(
+      <Page active="predictstreet"
+        title="PredictStreet users"
+        subtitle="Registered users, daily and monthly actives, measured from per-user vault contracts on ADI Chain."
+        render={(d) => <PredictStreet d={d} />} />
+    );
+  </script>
+</body>
+</html>

@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ADI Chain activity</title>
+  <link rel="stylesheet" href="styles.css?v=1" />
+</head>
+<body data-theme="light" data-aesthetic="institutional" data-density="cozy">
+  <script>
+  (function () {
+    try {
+      var t = localStorage.getItem('theme');
+      var a = localStorage.getItem('aesthetic');
+      var d = localStorage.getItem('density');
+      if (t) document.body.setAttribute('data-theme', t);
+      if (a) document.body.setAttribute('data-aesthetic', a);
+      if (d) document.body.setAttribute('data-density', d);
+    } catch (e) {}
+  })();
+  </script>
+
+  <div id="root" class="shell">
+    <div class="boot-splash">
+      <img class="boot-splash-mark" src="assets/brand/datum-loop.webp" alt="Datum Labs" />
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+  <script src="https://unpkg.com/html-to-image@1.11.13/dist/html-to-image.js"></script>
+
+  <script type="text/babel" src="charts.jsx?v=1"></script>
+  <script type="text/babel" src="widgets.jsx?v=1"></script>
+  <script type="text/babel" src="adi.jsx?v=1"></script>
+
+  <script type="text/babel" data-presets="env,react">
+    function lastComplete(rows) {
+      for (let i = rows.length - 1; i >= 0; i--) if (!rows[i].partial) return rows[i];
+      return rows[rows.length - 1];
+    }
+
+    function ChainActivity({ d }) {
+      const c = d.chain;
+      const last = lastComplete(c.series);
+      const peakTx = Math.max.apply(null, c.series.map(r => r.txs));
+      const peakTxDay = (c.series.find(r => r.txs === peakTx) || {}).date;
+      const peakSigners = Math.max.apply(null, c.series.map(r => r.dau_signers));
+      const peakSignerDay = (c.series.find(r => r.dau_signers === peakSigners) || {}).date;
+      const top10 = c.top_senders.slice(0, 10).reduce((a, s) => a + s.txs, 0);
+      const top10Share = c.total_txs ? (top10 / c.total_txs) * 100 : 0;
+      const ps = d.predictstreet;
+
+      return (
+        <React.Fragment>
+          <div className="panel" style={{ marginBottom: 16 }}>
+            <PanelHead title="Read this page as infrastructure, not demand" />
+            <div className="panel-caption">
+              <b>The ten busiest addresses account for {fmtPct(top10Share, 1)} of every
+              transaction ever sent on ADI Chain.</b> Those are application relayers and
+              sequencer-side infrastructure.
+              {ps ? ` A signer count sees ${fmtPct(ps.signer_visible_pct, 2)} of PredictStreet's user base.` : ''}{' '}
+              User counts live on the PredictStreet and Staking pages.
+            </div>
+          </div>
+
+          <div className="grid grid-4" style={{ marginBottom: 16 }}>
+            <Metric label="Transactions all time" value={fmtCount(c.total_txs)}
+              footer="Since genesis on 2025-11-25" />
+            <Metric label="Distinct signers all time" value={fmtCount(c.total_distinct_senders)}
+              footer="Every address that ever sent a transaction" />
+            <Metric label={`Signers on ${last ? last.date : 'n/a'}`}
+              value={fmtCount(last ? last.dau_signers : null)}
+              footer={`Peak ${fmtCount(peakSigners)} on ${peakSignerDay || 'n/a'}`} />
+            <Metric label="Top ten sender share" value={fmtPct(top10Share, 1)}
+              footer="Of all transactions" />
+          </div>
+
+          <ChartPanel
+            title="Daily transactions"
+            subtitle="Every transaction in a sealed block"
+              legend={[{ name: 'Transactions', color: 'var(--chart-4)' }]}
+            badge={`Peak ${fmtCount(peakTx)}`}
+            caption={<React.Fragment>
+              <b>Chain load over time.</b> The peak on {peakTxDay || 'n/a'} coincides
+              with the tournament window, when relayers were batching hardest.
+            </React.Fragment>}
+          >
+            {(w, h) => (
+              <AreaChart
+                width={w} height={h}
+                labels={labelsOf(c.series)}
+                formatter={fmtNum}
+                series={[{ name: 'Transactions', color: 'var(--chart-4)', values: pick(c.series, 'txs') }]}
+              />
+            )}
+          </ChartPanel>
+
+          <div className="grid grid-2" style={{ marginTop: 16 }}>
+            <ChartPanel
+              title="Distinct signers"
+              subtitle="Daily and trailing 30 day"
+              legend={[{ name: 'Trailing 30 day', color: 'var(--chart-2)' }, { name: 'Daily', color: 'var(--chart-3)' }]}
+              caption={<React.Fragment>
+                <b>A burst of fresh addresses on 8 and 9 July distorts the rolling line.</b>{' '}
+                Roughly 2,950 addresses appeared across those two days and then stopped,
+                which is why the 30 day line falls away in August as they age out.
+              </React.Fragment>}
+              height={250}
+            >
+              {(w, h) => (
+                <AreaChart
+                  width={w} height={h}
+                  labels={labelsOf(c.series)}
+                  formatter={fmtNum}
+                  series={[
+                    { name: 'Trailing 30 day', color: 'var(--chart-2)', values: pick(c.series, 'mau_signers') },
+                    { name: 'Daily', color: 'var(--chart-3)', values: pick(c.series, 'dau_signers') },
+                  ]}
+                />
+              )}
+            </ChartPanel>
+
+            <ChartPanel
+              title="Distinct recipients"
+              subtitle="Unique destination addresses"
+              legend={[{ name: 'Recipients', color: 'var(--chart-5)' }]}
+              caption={<React.Fragment>
+                <b>How many contracts and accounts the chain touches each day.</b> A
+                steadier line than senders, because contract destinations do not rotate
+                the way operator wallets do.
+              </React.Fragment>}
+              height={250}
+            >
+              {(w, h) => (
+                <AreaChart
+                  width={w} height={h}
+                  labels={labelsOf(c.series)}
+                  formatter={fmtNum}
+                  series={[{ name: 'Recipients', color: 'var(--chart-5)', values: pick(c.series, 'distinct_recipients') }]}
+                />
+              )}
+            </ChartPanel>
+          </div>
+
+          <div className="grid grid-2" style={{ marginTop: 16 }}>
+            <TablePanel
+              title="Busiest senders"
+              subtitle="All time"
+              badge={`${c.top_senders.length} rows`}
+              caption={<React.Fragment>
+                <b>These are operator wallets, not users.</b> The even spread of counts
+                across the leaders is the signature of a rotating relayer pool.
+              </React.Fragment>}
+            >
+              <table className="datatable">
+                <thead>
+                  <tr>
+                    <th>Address</th>
+                    <th className="num">Transactions</th>
+                    <th className="num col-hide-sm">Share</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {c.top_senders.slice(0, 15).map((s, i) => (
+                    <tr key={s.address}>
+                      <td>
+                        <div className="asset">
+                          <div className="asset-icon" style={{ background: `var(--chart-${(i % 8) + 1})` }}>
+                            {String(i + 1)}
+                          </div>
+                          <div>
+                            <a className="asset-name mono"
+                              href={`${d.meta.adi_explorer}/address/${s.address}`}
+                              target="_blank" rel="noreferrer">{shortAddr(s.address)}</a>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="num">{fmtCount(s.txs)}</td>
+                      <td className="num col-hide-sm">
+                        {fmtPct(c.total_txs ? (100 * s.txs / c.total_txs) : 0, 2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </TablePanel>
+
+            <TablePanel
+              title="Monthly"
+              subtitle="Calendar month"
+              caption={<React.Fragment>
+                <b>Signer counts by month.</b> Useful as a load trend. It is not a user
+                count, for the reason set out at the top of this page.
+              </React.Fragment>}
+            >
+              <table className="datatable">
+                <thead>
+                  <tr>
+                    <th>Month</th>
+                    <th className="num">Distinct signers</th>
+                    <th className="num">Transactions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {c.monthly.map(m => (
+                    <tr key={m.month}>
+                      <td>{m.month}</td>
+                      <td className="num">{fmtCount(m.mau_signers)}</td>
+                      <td className="num">{fmtCount(m.txs)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </TablePanel>
+          </div>
+        </React.Fragment>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(
+      <Page active="chain"
+        title="ADI Chain activity"
+        subtitle="Transactions, blocks and distinct signers on ADI Chain, chain ID 36900."
+        render={(d) => <ChainActivity d={d} />} />
+    );
+  </script>
+</body>
+</html>

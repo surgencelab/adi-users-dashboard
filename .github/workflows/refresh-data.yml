@@ -1,0 +1,91 @@
+name: refresh-data
+
+# Daily refresh. The dashboard reports daily metrics, so a daily cadence keeps
+# the freshness badge green (it turns amber past 26h and red past 72h).
+on:
+  schedule:
+    - cron: '20 6 * * *'   # 06:20 UTC, after the previous UTC day has closed
+  workflow_dispatch:
+    inputs:
+      full:
+        description: 'force a full PredictStreet re-scan (about an hour)'
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: refresh-data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # The raw index is large and git-ignored, so cache it between runs.
+      # Without this every run is a full backfill: about an hour for 825k
+      # blocks and another hour for 6.9M PredictStreet logs. With it, a daily
+      # run only walks the blocks produced since the last one.
+      - name: Restore raw index
+        uses: actions/cache@v4
+        with:
+          path: data
+          key: adi-index-${{ github.run_id }}
+          restore-keys: |
+            adi-index-
+
+      - name: Refresh, validate and publish
+        env:
+          # Optional. Set either in repo secrets to avoid free-tier RPC limits.
+          ETH_RPC_URL: ${{ secrets.ETH_RPC_URL }}
+          DUNE_API_KEY: ${{ secrets.DUNE_API_KEY }}
+        run: |
+          if [ "${{ inputs.full }}" = "true" ]; then
+            python3 scripts/refresh_all.py --full
+          else
+            python3 scripts/refresh_all.py
+          fi
+
+      # refresh_all.py only writes data.json if validate.py passed, so reaching
+      # this step means the dataset is checked. A failed validation exits
+      # non-zero above and the job goes red with the old data still published.
+      - name: Commit the published dataset
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet data.json; then
+            echo "no change in data.json"
+            exit 0
+          fi
+          git add data.json
+          git commit -m "data: scheduled refresh ($(date -u +%Y-%m-%d))"
+          git push
+
+      - name: Summarise
+        if: always()
+        run: |
+          {
+            echo "### ADI users refresh"
+            if [ -f data.json ]; then
+              python3 - <<'PY'
+          import json
+          d = json.load(open('data.json'))
+          ps, st, ch = d.get('predictstreet') or {}, d.get('staking') or {}, d.get('chain') or {}
+          print(f"- generated: `{d.get('generated_at')}`")
+          print(f"- registered users: **{ps.get('registered_total'):,}**" if ps.get('registered_total') else "- registered users: n/a")
+          print(f"- chain transactions: **{ch.get('total_txs'):,}**" if ch.get('total_txs') else "- chain transactions: n/a")
+          print(f"- stakers: **{st.get('unique_stakers')}**")
+          PY
+            else
+              echo "- no data.json produced"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Methodology</title>
+  <link rel="stylesheet" href="styles.css?v=1" />
+</head>
+<body data-theme="light" data-aesthetic="institutional" data-density="cozy">
+  <script>
+  (function () {
+    try {
+      var t = localStorage.getItem('theme');
+      var a = localStorage.getItem('aesthetic');
+      var d = localStorage.getItem('density');
+      if (t) document.body.setAttribute('data-theme', t);
+      if (a) document.body.setAttribute('data-aesthetic', a);
+      if (d) document.body.setAttribute('data-density', d);
+    } catch (e) {}
+  })();
+  </script>
+
+  <div id="root" class="shell">
+    <div class="boot-splash">
+      <img class="boot-splash-mark" src="assets/brand/datum-loop.webp" alt="Datum Labs" />
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+  <script src="https://unpkg.com/html-to-image@1.11.13/dist/html-to-image.js"></script>
+
+  <script type="text/babel" src="charts.jsx?v=1"></script>
+  <script type="text/babel" src="widgets.jsx?v=1"></script>
+  <script type="text/babel" src="adi.jsx?v=1"></script>
+
+  <script type="text/babel" data-presets="env,react">
+    function Row({ label, value, mono }) {
+      return (
+        <tr>
+          <td>{label}</td>
+          <td className={mono ? 'mono' : ''} style={{ wordBreak: 'break-all' }}>{value}</td>
+        </tr>
+      );
+    }
+
+    function Methodology({ d }) {
+      const ps = d.predictstreet;
+      const st = d.staking;
+      const c = d.meta.contracts;
+
+      return (
+        <React.Fragment>
+          <div className="panel" style={{ marginBottom: 16 }}>
+            <PanelHead title="What counts as a user" />
+            <div className="panel-caption">
+              <b>The question this dashboard answers is how many people use ADI, not how
+              many addresses touch it.</b> On this chain those are very different numbers.
+            </div>
+            <div className="panel-body">
+              <h3 style={{ marginTop: 0 }}>The problem with signer counts</h3>
+              <p>
+                The obvious way to measure active addresses on an EVM chain is to count
+                distinct transaction senders per day. On ADI Chain that number is close to
+                meaningless. PredictStreet, which produces the large majority of chain
+                activity, submits every user action through a rotating pool of roughly
+                fifteen operator hot wallets. Sampling a thousand consecutive transactions
+                to its contracts returns fewer than twenty distinct senders, each with a
+                near-identical transaction count. Counting signers measures how many
+                relayers the operator runs.
+              </p>
+              {ps && (
+                <p>
+                  The size of the gap is measured, not asserted. Of{' '}
+                  <b>{fmtCount(ps.distinct_owners)}</b> registered users, only{' '}
+                  <b>{fmtCount(ps.owners_that_self_signed)}</b> have ever signed an ADI Chain
+                  transaction from their own address, which is <b>{fmtPct(ps.signer_visible_pct, 2)}</b>.
+                  The vaults are plain contracts rather than smart accounts, and{' '}
+                  {ps.vaults_that_sent_txs === 0
+                    ? 'not one has ever sent a transaction'
+                    : `${fmtCount(ps.vaults_that_sent_txs)} have sent one`}
+                  . A daily active address chart built from senders would omit roughly{' '}
+                  {(100 - ps.signer_visible_pct).toFixed(0)}% of the people using the application.
+                </p>
+              )}
+
+              <h3>Where the users actually are</h3>
+              <p>
+                One level down, each account gets its own contract. The factory at{' '}
+                <code>{c.predictstreet_vault_factory}</code> emits{' '}
+                <code>VaultCreated(uint64, address indexed owner, address indexed vault)</code>{' '}
+                once per account: the first indexed topic is the owner's address, the second
+                is a freshly deployed vault. Every subsequent PredictStreet event references
+                that vault in an indexed topic, so the vault is a durable per-user identifier
+                and the metrics fall straight out of it.
+              </p>
+              <ul>
+                <li>
+                  <b>Registered users.</b> Cumulative count of distinct{' '}
+                  <code>VaultCreated</code> events. A direct count, not a proxy or an estimate.
+                </li>
+                <li>
+                  <b>DAU.</b> Distinct vaults referenced by any non-registration event in a
+                  UTC calendar day.
+                </li>
+                <li>
+                  <b>MAU.</b> Distinct vaults over the trailing {d.meta.rolling_window_days} days
+                  ending on that day. Calendar month figures are reported separately, because
+                  a rolling window carries a busy period forward.
+                </li>
+              </ul>
+              <p>
+                Attribution is deliberately ABI-agnostic. None of the PredictStreet contracts
+                are verified, so rather than guessing each event's parameter layout, the indexer
+                treats any indexed topic matching a known vault as evidence that the user acted.
+                That survives contract upgrades and events we have not identified by name.
+              </p>
+
+              <h3>How the staking figures are derived</h3>
+              <p>
+                The <code>Staked</code> event carries the principal in its first non-indexed
+                word and a lock-boosted figure in the second. Two independent checks confirm
+                that reading. The principals sum to{' '}
+                <b>{st ? fmtCount(st.total_staked_adi) : 'n/a'} ADI</b>, which is exactly the
+                pool total the ADI staking app itself displays, and the ratio between the two
+                words lands on the 0.58x, 1.17x and 1.75x multipliers the app offers for 30,
+                90 and 180 day locks. The contract's token balance reconciles as well:
+                principal plus the funded reward pool, less rewards already claimed, matches
+                what it holds. USD values use the ADI spot price looked up by contract address
+                so a same-ticker token cannot be picked up by mistake.
+              </p>
+
+              <h3>Known limits</h3>
+              <ul>
+                <li>
+                  An account that registers but never trades still counts as registered. The
+                  gap between registered users and MAU is the activation rate.
+                </li>
+                <li>
+                  Off-chain sessions leave no trace. Someone browsing markets without settling
+                  on chain is invisible here. These are a floor on engagement, not a substitute
+                  for web analytics.
+                </li>
+                <li>
+                  Counts are per address, not per person. Someone with several wallets is
+                  counted several times, and a custodial account shared by two people is
+                  counted once.
+                </li>
+                <li>
+                  USD figures are a spot valuation at the price shown. They are a size
+                  reference, not a mark to market of each deposit at the time it was made.
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="grid grid-2">
+            <TablePanel
+              title="Contracts"
+              subtitle="Addresses this dashboard reads"
+              caption={<React.Fragment>
+                <b>Read from the runtime configuration served by the ADI staking app.</b>{' '}
+                None are published in the public documentation, and none are verified.
+              </React.Fragment>}
+            >
+              <table className="datatable">
+                <thead><tr><th>Contract</th><th>Address</th></tr></thead>
+                <tbody>
+                  <Row label="PredictStreet settlement (ADI)" value={c.predictstreet_settlement} mono />
+                  <Row label="PredictStreet vault factory (ADI)" value={c.predictstreet_vault_factory} mono />
+                  <Row label="HODLER staking (Ethereum)" value={c.staking_ethereum} mono />
+                  <Row label="ADI token (Ethereum)" value={c.adi_token_ethereum} mono />
+                </tbody>
+              </table>
+            </TablePanel>
+
+            <TablePanel
+              title="Sources and limits"
+              subtitle="Where the data comes from"
+              caption={<React.Fragment>
+                <b>ADI Chain is not indexed by Dune, so this pipeline builds its own index.</b>{' '}
+                The Ethereum side is cross-checked against Dune and the two agree exactly.
+              </React.Fragment>}
+            >
+              <table className="datatable">
+                <thead><tr><th>Item</th><th>Detail</th></tr></thead>
+                <tbody>
+                  <Row label="ADI Chain RPC" value={d.meta.adi_rpc} mono />
+                  <Row label="ADI Chain explorer" value={d.meta.adi_explorer} mono />
+                  <Row label="Chain ID" value={String(d.meta.adi_chain_id)} mono />
+                  <Row label="MAU window" value={`${d.meta.rolling_window_days} days rolling`} />
+                  <Row label="ADI price source"
+                    value={st && st.price ? st.price.source : 'n/a'} />
+                  <Row label="Dataset generated"
+                    value={d.generated_at ? d.generated_at.replace('T', ' ').slice(0, 19) + ' UTC' : 'n/a'} mono />
+                  <Row label="Incomplete day" value={d.partial_day || 'none'} mono />
+                </tbody>
+              </table>
+            </TablePanel>
+          </div>
+
+          <div className="panel" style={{ marginTop: 16 }}>
+            <PanelHead title="Refreshing" />
+            <div className="panel-caption">
+              <b>One command rebuilds everything.</b> The block scan is incremental, so
+              routine refreshes only pull new blocks.
+            </div>
+            <div className="panel-body">
+              <p>
+                <code>python3 scripts/refresh_all.py</code> runs the block scan, the
+                PredictStreet log scan, the staking scan and the dataset build in order.
+                <code>python3 scripts/validate.py</code> then tests the assumptions the
+                numbers rest on, including the VaultCreated topic order, against the chain.
+              </p>
+            </div>
+          </div>
+        </React.Fragment>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(
+      <Page active="methodology"
+        title="Methodology"
+        subtitle="How users are identified, what each metric means, and where the numbers come from."
+        render={(d) => <Methodology d={d} />} />
+    );
+  </script>
+</body>
+</html>

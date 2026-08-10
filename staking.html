@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ADI HODLER staking</title>
+  <link rel="stylesheet" href="styles.css?v=1" />
+</head>
+<body data-theme="light" data-aesthetic="institutional" data-density="cozy">
+  <script>
+  (function () {
+    try {
+      var t = localStorage.getItem('theme');
+      var a = localStorage.getItem('aesthetic');
+      var d = localStorage.getItem('density');
+      if (t) document.body.setAttribute('data-theme', t);
+      if (a) document.body.setAttribute('data-aesthetic', a);
+      if (d) document.body.setAttribute('data-density', d);
+    } catch (e) {}
+  })();
+  </script>
+
+  <div id="root" class="shell">
+    <div class="boot-splash">
+      <img class="boot-splash-mark" src="assets/brand/datum-loop.webp" alt="Datum Labs" />
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
+  <script src="https://unpkg.com/html-to-image@1.11.13/dist/html-to-image.js"></script>
+
+  <script type="text/babel" src="charts.jsx?v=1"></script>
+  <script type="text/babel" src="widgets.jsx?v=1"></script>
+  <script type="text/babel" src="adi.jsx?v=1"></script>
+
+  <script type="text/babel" data-presets="env,react">
+    function Staking({ d }) {
+      const st = d.staking;
+      if (!st) {
+        return (
+          <div className="panel"><div className="panel-body">
+            No staking data in this build. Run <code>python3 scripts/refresh_all.py</code>.
+          </div></div>
+        );
+      }
+
+      const [sel, setSel] = React.useState(null);
+      const price = st.price || {};
+      const usd = price.usd;
+      const lb = st.leaderboard || [];
+      const top = lb[0];
+      const opened = st.series.length ? st.series[0].date : 'n/a';
+      const restAdi = lb.slice(1).reduce((a, r) => a + r.staked_adi, 0);
+
+      // The contract records a lock multiplier per stake. A staker with several
+      // stakes at different locks ends up with a blended ratio that matches no
+      // single option, so only label a lock when the ratio is genuinely close to
+      // one of the three the app offers.
+      const LOCKS = [
+        { mult: 0.58, label: '30 day' },
+        { mult: 1.17, label: '90 day' },
+        { mult: 1.75, label: '180 day' },
+      ];
+      const lockLabel = (b) => {
+        if (b === null || b === undefined) return 'n/a';
+        const hit = LOCKS.find(l => Math.abs(b - l.mult) < 0.02);
+        return hit ? hit.label : 'mixed';
+      };
+
+      return (
+        <React.Fragment>
+          <div className="panel" style={{ marginBottom: 16 }}>
+            <PanelHead title="What the programme actually holds" />
+            <div className="panel-caption">
+              <b>Eleven addresses hold {fmtUSDExact(st.total_staked_usd)} of staked ADI,
+              and one of them holds {fmtPct(top ? top.share_pct : 0, 1)} of it.</b>{' '}
+              The programme runs on Ethereum mainnet, not on ADI Chain. Counts are per
+              address, so one person using several wallets appears more than once.
+              Valued at the {' '}
+              <span className="mono">{fmtUSDExact(usd, 2)}</span> ADI spot price.
+            </div>
+          </div>
+
+          <div className="grid grid-4" style={{ marginBottom: 16 }}>
+            <Metric label="Total staked"
+              value={usd ? fmtUSDExact(st.total_staked_usd) : 'n/a'}
+              footer={`${fmtCount(st.total_staked_adi)} ADI from ${st.unique_stakers} addresses`} />
+            <Metric label="Participants"
+              value={fmtCount(st.unique_stakers)}
+              footer={`Unique stakers since ${opened}`} />
+            <Metric label="Pool utilisation"
+              value={fmtPct(st.pool_fill_pct, 2)}
+              footer={`Cap ${fmtCount(st.pool_cap_adi)} ADI, worth ${fmtUSD(st.pool_cap_usd)}`} />
+            <Metric label="Largest staker share"
+              value={fmtPct(top ? top.share_pct : 0, 2)}
+              footer={top ? `${fmtUSDExact(top.staked_usd)} from one address` : 'n/a'} />
+          </div>
+
+          <div className="grid grid-4" style={{ marginBottom: 16 }}>
+            <Metric label="Median stake"
+              value={usd ? fmtUSDExact(st.median_stake_adi * usd) : 'n/a'}
+              footer={`${fmtCount(st.median_stake_adi)} ADI`} />
+            <Metric label="Mean stake"
+              value={usd ? fmtUSDExact(st.avg_stake_adi * usd) : 'n/a'}
+              footer={`${fmtCount(st.avg_stake_adi)} ADI, skewed by the largest holder`} />
+            <Metric label="Rewards claimed"
+              value={usd ? fmtUSDExact(st.rewards_claimed_usd) : 'n/a'}
+              footer={`${fmtCount(st.rewards_claimed_adi)} ADI of a ${fmtCount(st.reward_pool_adi)} ADI pool`} />
+            <Metric label="ADI price"
+              value={fmtUSDExact(usd, 2)}
+              footer={price.market_cap_usd ? `Market cap ${fmtUSD(price.market_cap_usd)}` : 'Spot'} />
+          </div>
+
+          <div className="grid grid-2" style={{ marginBottom: 16 }}>
+            <ChartPanel
+              title="Who holds the staked ADI"
+              subtitle="Share of pool by address"
+              badge={`${st.unique_stakers} stakers`}
+              caption={<React.Fragment>
+                <b>One address holds {fmtPct(top ? top.share_pct : 0, 1)} of the pool.</b>{' '}
+                It has staked {fmtUSDExact(top ? top.staked_usd : 0)}, against{' '}
+                {fmtUSDExact(usd ? restAdi * usd : 0)} from the other{' '}
+                {lb.length - 1} addresses combined. Programme totals therefore track
+                one holder's decisions, not broad participation.
+              </React.Fragment>}
+              height={280}
+            >
+              {(w, h) => (
+                <Donut
+                  size={Math.min(230, Math.max(160, w * 0.45))}
+                  thickness={32}
+                  formatter={fmtUSD}
+                  centerLabel={usd ? fmtUSD(st.total_staked_usd) : undefined}
+                  items={lb.map((r, i) => ({
+                    name: shortAddr(r.address),
+                    value: usd ? r.staked_usd : r.staked_adi,
+                    color: `var(--chart-${(i % 8) + 1})`,
+                  }))}
+                />
+              )}
+            </ChartPanel>
+
+            <ChartPanel
+              title="Value staked over time"
+              subtitle="Cumulative, at today's price"
+              legend={[{ name: 'Cumulative staked', color: 'var(--chart-1)' }]}
+              caption={<React.Fragment>
+                <b>Almost all of the pool arrived in the opening days.</b> Cumulative
+                stake is valued at the current ADI price throughout, so this shows
+                deposit timing rather than the value at the moment of each deposit.
+              </React.Fragment>}
+              height={280}
+            >
+              {(w, h) => (
+                <AreaChart
+                  width={w} height={h}
+                  labels={labelsOf(st.series)}
+                  formatter={usd ? fmtUSD : fmtNum}
+                  series={[{
+                    name: usd ? 'Cumulative staked (USD)' : 'Cumulative staked (ADI)',
+                    color: 'var(--chart-1)',
+                    values: st.series.map(r => (usd ? (r.cumulative_staked_usd || 0) : r.cumulative_staked_adi)),
+                  }]}
+                />
+              )}
+            </ChartPanel>
+          </div>
+
+          <TablePanel
+            title="Stakers"
+            subtitle="Every participant"
+            badge={`${lb.length} rows`}
+            caption={<React.Fragment>
+              <b>The full participant list, because eleven rows is the whole story.</b>{' '}
+              Boost is the lock multiplier the contract recorded, which maps to the
+              30, 90 and 180 day lock options. Click a row for detail.
+            </React.Fragment>}
+          >
+            <table className="datatable">
+              <thead>
+                <tr>
+                  <th>Address</th>
+                  <th className="num">Staked ADI</th>
+                  <th className="num">Value</th>
+                  <th className="num">Share</th>
+                  <th className="num col-hide-sm">Boost</th>
+                  <th className="col-hide-sm">Lock</th>
+                  <th className="num col-hide-sm">Rewards claimed</th>
+                  <th className="col-hide-sm">First stake</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lb.map((r, i) => (
+                  <tr key={r.address} onClick={() => setSel(r)}
+                    style={{ cursor: 'pointer' }} title="Open staker detail">
+                    <td>
+                      <div className="asset">
+                        <div className="asset-icon" style={{ background: `var(--chart-${(i % 8) + 1})` }}>
+                          {String(i + 1)}
+                        </div>
+                        <div>
+                          <div className="asset-name mono">{shortAddr(r.address)}</div>
+                          <div className="asset-sub">{r.stake_events} stake {r.stake_events === 1 ? 'event' : 'events'}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="num">{fmtCount(r.staked_adi)}</td>
+                    <td className="num">{r.staked_usd === null ? 'n/a' : fmtUSDExact(r.staked_usd)}</td>
+                    <td className="num">{fmtPct(r.share_pct, 2)}</td>
+                    <td className="num col-hide-sm">{r.boost === null ? 'n/a' : `${r.boost.toFixed(2)}x`}</td>
+                    <td className="col-hide-sm"><span className="risk-pill">{lockLabel(r.boost)}</span></td>
+                    <td className="num col-hide-sm">{fmtCount(r.rewards_claimed_adi)}</td>
+                    <td className="col-hide-sm">{r.first_stake || 'n/a'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </TablePanel>
+
+          <div className="grid grid-2" style={{ marginTop: 16 }}>
+            <ChartPanel
+              title="Participants over time"
+              subtitle="Cumulative and active"
+              legend={[{ name: 'Cumulative stakers', color: 'var(--chart-1)' }, { name: 'Active that day', color: 'var(--chart-3)' }]}
+              caption={<React.Fragment>
+                <b>Growth stopped after the first week.</b> One address joined in
+                August. Activity since is existing stakers harvesting and claiming.
+              </React.Fragment>}
+              height={250}
+            >
+              {(w, h) => (
+                <AreaChart
+                  width={w} height={h}
+                  labels={labelsOf(st.series)}
+                  formatter={fmtNum}
+                  series={[
+                    { name: 'Cumulative stakers', color: 'var(--chart-1)', values: pick(st.series, 'cumulative_stakers') },
+                    { name: 'Active that day', color: 'var(--chart-3)', values: pick(st.series, 'dau') },
+                  ]}
+                />
+              )}
+            </ChartPanel>
+
+            <TablePanel
+              title="Programme balance sheet"
+              subtitle="Reconciliation"
+              caption={<React.Fragment>
+                <b>The contract balance ties out against the events.</b> Principal
+                plus the funded reward pool, less rewards already claimed, matches
+                what the contract holds. That is the check on the decoded amounts.
+              </React.Fragment>}
+            >
+              <table className="datatable">
+                <thead>
+                  <tr><th>Item</th><th className="num">ADI</th><th className="num">Value</th></tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Principal staked</td>
+                    <td className="num">{fmtCount(st.total_staked_adi)}</td>
+                    <td className="num">{usd ? fmtUSDExact(st.total_staked_usd) : 'n/a'}</td>
+                  </tr>
+                  <tr>
+                    <td>Reward pool funded</td>
+                    <td className="num">{fmtCount(st.reward_pool_adi)}</td>
+                    <td className="num">{usd ? fmtUSDExact(st.reward_pool_usd) : 'n/a'}</td>
+                  </tr>
+                  <tr>
+                    <td>Rewards claimed out</td>
+                    <td className="num">{'-' + fmtCount(st.rewards_claimed_adi)}</td>
+                    <td className="num">{usd ? '-' + fmtUSDExact(st.rewards_claimed_usd) : 'n/a'}</td>
+                  </tr>
+                  <tr style={{ fontWeight: 600 }}>
+                    <td>Contract balance</td>
+                    <td className="num">{fmtCount(st.contract_balance_adi)}</td>
+                    <td className="num">{usd ? fmtUSDExact(st.contract_balance_adi * usd) : 'n/a'}</td>
+                  </tr>
+                  <tr>
+                    <td>Unused pool capacity</td>
+                    <td className="num">{fmtCount(st.pool_cap_adi - st.total_staked_adi)}</td>
+                    <td className="num">{usd ? fmtUSDExact((st.pool_cap_adi - st.total_staked_adi) * usd) : 'n/a'}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </TablePanel>
+          </div>
+
+          <ExpandModal open={!!sel} title={sel ? shortAddr(sel.address) : ''} onClose={() => setSel(null)}>
+            {sel && (
+              <div style={{ padding: 4 }}>
+                <div className="mono" style={{ fontSize: 12, color: 'var(--fg-muted)', marginBottom: 14, wordBreak: 'break-all' }}>
+                  {sel.address}
+                </div>
+                <div className="grid grid-2" style={{ gap: 12 }}>
+                  <Metric label="Staked" value={fmtCount(sel.staked_adi) + ' ADI'}
+                    footer={sel.staked_usd === null ? 'n/a' : fmtUSDExact(sel.staked_usd)} />
+                  <Metric label="Share of pool" value={fmtPct(sel.share_pct, 2)}
+                    footer={`Rank ${lb.indexOf(sel) + 1} of ${lb.length}`} />
+                  <Metric label="Lock boost"
+                    value={sel.boost === null ? 'n/a' : `${sel.boost.toFixed(2)}x`}
+                    footer={`${lockLabel(sel.boost)} lock, weighted ${fmtCount(sel.weighted_adi)} ADI`} />
+                  <Metric label="Rewards claimed" value={fmtCount(sel.rewards_claimed_adi) + ' ADI'}
+                    footer={`First staked ${sel.first_stake || 'n/a'}`} />
+                </div>
+                <p style={{ marginTop: 16, color: 'var(--fg-muted)', fontSize: 12 }}>
+                  Address activity is on Ethereum mainnet. View it on{' '}
+                  <a href={`https://etherscan.io/address/${sel.address}`} target="_blank"
+                    rel="noreferrer" style={{ color: 'var(--orange)' }}>Etherscan</a>.
+                </p>
+              </div>
+            )}
+          </ExpandModal>
+        </React.Fragment>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(
+      <Page active="staking"
+        title="ADI HODLER staking"
+        subtitle="Participants and value staked in the ADI HODLER programme on Ethereum mainnet."
+        render={(d) => <Staking d={d} />} />
+    );
+  </script>
+</body>
+</html>

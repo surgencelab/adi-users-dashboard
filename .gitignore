@@ -1,0 +1,19 @@
+node_modules
+dist
+tsconfig.tsbuildinfo
+__pycache__/
+*.pyc
+
+# Raw indexes are large and fully regenerable via scripts/refresh_all.py.
+# data.json at the project root is the committed artefact the pages read.
+data/*.gz
+data/*.log
+data/ps_vaults.json
+
+legacy-vite/node_modules
+legacy-vite/dist
+
+.DS_Store
+.env
+
+data.json.candidate
