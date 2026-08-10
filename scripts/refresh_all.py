@@ -30,6 +30,10 @@ STEPS = [
     # it and only promotes it over data.json if every check passes. If this step
     # fails the previously published dataset stays exactly where it was.
     ("validate and publish", "validate.py"),
+    # Runs after the gate, so only data that passed is ever loaded. Skips
+    # itself with a note when DATABASE_URL is unset, since the dashboard reads
+    # data.json and does not depend on the database.
+    ("load into postgres", "load_db.py"),
 ]
 
 
