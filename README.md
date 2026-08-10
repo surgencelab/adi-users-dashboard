@@ -138,12 +138,25 @@ build step: the framework preset is Other with no build or install command.
 Bump the `?v=` query on `styles.css` and the `.jsx` files whenever you change
 them. They are cached hard, and without a bump viewers keep the old copy.
 
-If a deployment is blocked with a complaint about the commit author's email,
-the address is almost certainly fine. Vercel struggles to resolve
-`users.noreply.github.com` addresses to a GitHub account and blocks when it
-cannot match the author to someone with project access. The fix is to link the
-authoring GitHub account under Vercel's Login Connections, not to rewrite the
-email.
+**Commits must be authored with a real email.** Vercel blocks Git deployments
+whose author it cannot resolve, and it cannot resolve
+`110054818+Olusegun-Aborode@users.noreply.github.com` even though that address
+is a correct GitHub noreply alias and the GitHub account is already linked under
+Vercel's Login Connections. Linking the account is necessary but not sufficient.
+
+This repo therefore sets a repo-local identity:
+
+```bash
+git config --local user.email "aborodeolusegun@gmail.com"
+```
+
+Repo-local on purpose, so other projects keep the global noreply default. If
+you clone this fresh, set it again or your pushes will build as Blocked.
+
+The daily refresh workflow commits as `github-actions[bot]` and will hit the
+same check. If those commits are blocked, either have the workflow push to a
+branch you merge, or drop the git-triggered deploy for a Vercel Deploy Hook
+called at the end of the workflow.
 
 The previous Vite build is kept under `legacy-vite/` and is no longer
 maintained.
