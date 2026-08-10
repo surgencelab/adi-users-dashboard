@@ -172,10 +172,18 @@ def main():
                     help="reuse an existing ps_logs.jsonl.gz")
     ap.add_argument("--full", action="store_true",
                     help="ignore the checkpoint and re-scan from the beginning")
+    ap.add_argument("--to", type=int, default=None,
+                    help="stop at this block instead of resolving the head. "
+                         "refresh_all.py passes the same value to every indexer "
+                         "so they all cover an identical range.")
     args = ap.parse_args()
 
     os.makedirs(DATA, exist_ok=True)
-    head = safe_head()
+    # Every indexer in a run must stop at the same block. Resolving the head
+    # independently lets the chain advance between steps, and any vault indexed
+    # past the block scan has no timestamp, so its registration silently
+    # vanishes from the daily series.
+    head = args.to if args.to is not None else safe_head()
 
     if not args.skip_scan:
         ckpt = None if args.full else read_checkpoint()

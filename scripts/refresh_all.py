@@ -40,9 +40,22 @@ STEPS = [
 def main():
     full = "--full" in sys.argv
     t0 = time.time()
+
+    # Resolve the chain head once and pin every ADI indexer to it. Letting each
+    # step resolve its own head lets the chain move underneath the run: the
+    # PredictStreet scan then reaches blocks the block scan never saw, and any
+    # vault created in that gap has no timestamp, so its registration is
+    # dropped from the daily series while still counting in the registry.
+    sys.path.insert(0, HERE)
+    from adi_rpc import safe_head  # noqa: E402
+    head = safe_head()
+    print(f"\npinning every ADI indexer to block {head:,}", flush=True)
+
     for label, script in STEPS:
         print(f"\n{'=' * 62}\n  {label}  ({script})\n{'=' * 62}", flush=True)
         cmd = [sys.executable, os.path.join(HERE, script)]
+        if script in ("index_blocks.py", "index_predictstreet.py"):
+            cmd += ["--to", str(head)]
         if full and script == "index_predictstreet.py":
             cmd.append("--full")
         r = subprocess.run(cmd)

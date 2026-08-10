@@ -180,10 +180,21 @@ def build_predictstreet(block_ts, chain_senders):
 
     # registrations per day
     reg_daily = collections.Counter()
+    undated = 0
     for v in vaults:
         t = block_ts.get(v["block"])
         if t:
             reg_daily[day_of(t)] += 1
+        else:
+            undated += 1
+    if undated:
+        # Means the PredictStreet scan reached blocks the block scan did not,
+        # so these registrations would vanish from the daily series while still
+        # counting in the registry. refresh_all.py pins both indexers to one
+        # head to prevent it; say so loudly if it happens anyway.
+        print(f"  WARNING: {undated} vault(s) have no block timestamp and are "
+              f"missing from the daily series. The indexers covered different "
+              f"block ranges; re-run via refresh_all.py.", flush=True)
 
     # activity per day, deduped to the vault (one row per user per day)
     act_daily = collections.defaultdict(set)
