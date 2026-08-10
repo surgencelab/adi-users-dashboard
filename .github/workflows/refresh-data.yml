@@ -70,6 +70,25 @@ jobs:
           git commit -m "data: scheduled refresh ($(date -u +%Y-%m-%d))"
           git push
 
+      # Vercel blocks Git deployments whose commit author it cannot resolve, and
+      # these commits are authored by github-actions[bot]. A deploy hook takes
+      # no author into account, so it publishes reliably. Set VERCEL_DEPLOY_HOOK
+      # in repo secrets (Vercel: Settings > Git > Deploy Hooks). Skipped when
+      # unset, so the workflow still works without it.
+      - name: Trigger Vercel deploy
+        if: success()
+        env:
+          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "VERCEL_DEPLOY_HOOK not set, skipping deploy trigger"
+            exit 0
+          fi
+          code=$(curl -sS -o /tmp/hook.out -w '%{http_code}' -X POST "$HOOK")
+          echo "deploy hook responded $code"
+          cat /tmp/hook.out
+          [ "$code" -lt 400 ]
+
       - name: Summarise
         if: always()
         run: |
