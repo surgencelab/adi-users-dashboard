@@ -3,6 +3,10 @@
  * Everything registers on window, matching the SDK convention.
  */
 
+/* Chart watermark. The SDK ships "DATUM LABS · DEMO" hardcoded, which does not
+ * belong on a delivered dashboard. Set to '' to remove it entirely. */
+window.CHART_WATERMARK = 'SURGENCE RESEARCH';
+
 const ADI_NAV = [
   { id: 'overview',      label: 'Overview',      href: 'index.html' },
   { id: 'predictstreet', label: 'PredictStreet', href: 'predictstreet.html' },
@@ -116,9 +120,10 @@ function ThemeToggle() {
 }
 
 function Sidebar({ active }) {
+  // No nav splash: the branded loading overlay has been removed, and
+  // showNavSplash() would re-inject exactly the mark we took out.
   const go = (e, href) => {
     e.preventDefault();
-    if (window.showNavSplash) window.showNavSplash();
     window.location.href = href;
   };
   // Structure follows the SDK's own shell: section divs holding the nav items,
@@ -139,9 +144,11 @@ function Sidebar({ active }) {
         ))}
       </div>
       <div style={{ marginTop: 'auto', padding: '16px 10px 8px', borderTop: '1px solid var(--border)' }}>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--fg-dim)', letterSpacing: '0.1em' }}>BUILT WITH</div>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--fg-muted)', marginTop: 3 }}>
-          @datumlabs/<span style={{ color: 'var(--orange)' }}>dashboard-kit</span>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, color: 'var(--fg-muted)', lineHeight: 1.5 }}>
+          Built by Surgence Research with{' '}
+          <span style={{ whiteSpace: 'nowrap' }}>
+            @datumlabs/<span style={{ color: 'var(--orange)' }}>dashboard-kit</span>
+          </span>
         </div>
       </div>
     </aside>

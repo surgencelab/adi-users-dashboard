@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Brand orange from the SDK token --orange (#FF6B35). Rounded square so the
+       mark reads at 16px in a tab strip, with an A for ADI cut out of it. -->
+  <rect width="32" height="32" rx="7" fill="#FF6B35"/>
+  <path d="M16 7.5 L23.5 24.5 H19.9 L18.5 21.2 H13.5 L12.1 24.5 H8.5 Z
+           M16 12.6 L14.5 18.2 H17.5 Z"
+        fill="#FFFFFF" fill-rule="evenodd"/>
+</svg>

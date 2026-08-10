@@ -4,7 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ADI active users</title>
-  <link rel="stylesheet" href="styles.css?v=3" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="stylesheet" href="styles.css?v=5" />
 </head>
 <body data-theme="light" data-aesthetic="institutional" data-density="cozy">
   <script>
@@ -21,9 +22,6 @@
   </script>
 
   <div id="root" class="shell">
-    <div class="boot-splash">
-      <img class="boot-splash-mark" src="assets/brand/datum-loop.webp" alt="Datum Labs" />
-    </div>
   </div>
 
   <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
@@ -31,9 +29,9 @@
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
   <script src="https://unpkg.com/html-to-image@1.11.13/dist/html-to-image.js"></script>
 
-  <script type="text/babel" src="charts.jsx?v=3"></script>
-  <script type="text/babel" src="widgets.jsx?v=3"></script>
-  <script type="text/babel" src="adi.jsx?v=3"></script>
+  <script type="text/babel" src="charts.jsx?v=5"></script>
+  <script type="text/babel" src="widgets.jsx?v=5"></script>
+  <script type="text/babel" src="adi.jsx?v=5"></script>
 
   <script type="text/babel" data-presets="env,react">
     function lastComplete(rows) {
@@ -47,8 +45,6 @@
       const chain = d.chain;
 
       const psLast = ps ? lastComplete(ps.series) : null;
-      const chainLast = lastComplete(chain.series);
-      const asOf = (psLast || chainLast || {}).date;
 
       const recent = ps ? ps.series.slice(-30) : [];
       const peakDau = recent.length ? Math.max.apply(null, recent.map(r => r.dau)) : 0;
@@ -97,11 +93,6 @@
                 ? `${fmtUSD(st.total_staked_usd)} staked on Ethereum`
                 : 'People who have staked ADI'} />
           </div>
-
-          <p className="page-subtitle" style={{ margin: '-6px 0 16px' }}>
-            Daily figures as of {asOf || 'n/a'}, the last complete UTC day.
-            {d.partial_day ? ` ${d.partial_day} is still in progress.` : ''}
-          </p>
 
           <div className="grid grid-4" style={{ marginBottom: 16 }}>
             <Metric label="Came back to use it"

@@ -27,11 +27,17 @@ window.fmtUSD = fmtUSD; window.fmtNum = fmtNum; window.fmtPct = fmtPct;
 
 // ── AreaChart ────────────────────────────────────────────
 // ── Chart watermark ─────────────────────────────────────
+// Local deviation from the SDK: the watermark text was hardcoded to
+// "DATUM LABS · DEMO", which is wrong on a delivered dashboard. Now overridable
+// via window.CHART_WATERMARK, defaulting to the SDK's own string so existing
+// dashboards are unaffected. Worth upstreaming into the kit.
 function ChartWatermark({ x, y }) {
+  const label = (typeof window !== 'undefined' && window.CHART_WATERMARK) || 'DATUM LABS · DEMO';
+  if (!label) return null;
   return (
     <text x={x} y={y} textAnchor="end" fontFamily="var(--font-mono)"
       fontSize="11" fill="var(--fg-muted)" opacity="0.14" style={{ pointerEvents: 'none', letterSpacing: '0.12em' }}>
-      DATUM LABS · DEMO
+      {label}
     </text>
   );
 }
