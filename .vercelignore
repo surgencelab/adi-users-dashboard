@@ -1,0 +1,8 @@
+# The site is the static pages plus data.json. Everything below is build-time
+# or historical and has no business being served.
+legacy-vite
+scripts
+data
+.github
+.claude
+README.md

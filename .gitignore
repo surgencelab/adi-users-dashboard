@@ -4,11 +4,10 @@ tsconfig.tsbuildinfo
 __pycache__/
 *.pyc
 
-# Raw indexes are large and fully regenerable via scripts/refresh_all.py.
-# data.json at the project root is the committed artefact the pages read.
-data/*.gz
-data/*.log
-data/ps_vaults.json
+# The whole raw index is regenerable and is persisted by the CI cache, not by
+# git. Committing part of it (a checkpoint without the log file it points at)
+# leaves a fresh checkout in an inconsistent state.
+data/
 
 legacy-vite/node_modules
 legacy-vite/dist
@@ -17,3 +16,4 @@ legacy-vite/dist
 .env
 
 data.json.candidate
+.vercel
