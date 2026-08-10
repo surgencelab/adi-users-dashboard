@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ADI Chain activity</title>
-  <link rel="stylesheet" href="styles.css?v=1" />
+  <link rel="stylesheet" href="styles.css?v=2" />
 </head>
 <body data-theme="light" data-aesthetic="institutional" data-density="cozy">
   <script>
@@ -31,9 +31,9 @@
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
   <script src="https://unpkg.com/html-to-image@1.11.13/dist/html-to-image.js"></script>
 
-  <script type="text/babel" src="charts.jsx?v=1"></script>
-  <script type="text/babel" src="widgets.jsx?v=1"></script>
-  <script type="text/babel" src="adi.jsx?v=1"></script>
+  <script type="text/babel" src="charts.jsx?v=2"></script>
+  <script type="text/babel" src="widgets.jsx?v=2"></script>
+  <script type="text/babel" src="adi.jsx?v=2"></script>
 
   <script type="text/babel" data-presets="env,react">
     function lastComplete(rows) {
@@ -55,36 +55,36 @@
       return (
         <React.Fragment>
           <div className="panel" style={{ marginBottom: 16 }}>
-            <PanelHead title="Read this page as infrastructure, not demand" />
+            <PanelHead title="This page counts wallets, not people" />
             <div className="panel-caption">
-              <b>The ten busiest addresses account for {fmtPct(top10Share, 1)} of every
-              transaction ever sent on ADI Chain.</b> Those are application relayers and
-              sequencer-side infrastructure.
-              {ps ? ` A signer count sees ${fmtPct(ps.signer_visible_pct, 2)} of PredictStreet's user base.` : ''}{' '}
-              User counts live on the PredictStreet and Staking pages.
+              <b>Ten wallets sent {fmtPct(top10Share, 1)} of every transaction ADI Chain
+              has ever had.</b> Those belong to apps and to the chain's own plumbing, not
+              to individual people.
+              {ps ? ` Counting wallets this way would find only ${fmtPct(ps.signer_visible_pct, 2)} of PredictStreet's users.` : ''}{' '}
+              For actual people, use the PredictStreet and Staking pages.
             </div>
           </div>
 
           <div className="grid grid-4" style={{ marginBottom: 16 }}>
-            <Metric label="Transactions all time" value={fmtCount(c.total_txs)}
-              footer="Since genesis on 2025-11-25" />
-            <Metric label="Distinct signers all time" value={fmtCount(c.total_distinct_senders)}
-              footer="Every address that ever sent a transaction" />
-            <Metric label={`Signers on ${last ? last.date : 'n/a'}`}
+            <Metric label="Transactions ever" value={fmtCount(c.total_txs)}
+              footer="Since the chain launched on 2025-11-25" />
+            <Metric label="Wallets that ever sent one" value={fmtCount(c.total_distinct_senders)}
+              footer="Mostly apps and infrastructure, not people" />
+            <Metric label={`Wallets active on ${last ? last.date : 'n/a'}`}
               value={fmtCount(last ? last.dau_signers : null)}
-              footer={`Peak ${fmtCount(peakSigners)} on ${peakSignerDay || 'n/a'}`} />
-            <Metric label="Top ten sender share" value={fmtPct(top10Share, 1)}
-              footer="Of all transactions" />
+              footer={`Most ever in a day: ${fmtCount(peakSigners)} on ${peakSignerDay || 'n/a'}`} />
+            <Metric label="Share sent by the top ten" value={fmtPct(top10Share, 1)}
+              footer="Ten wallets, this much of all traffic" />
           </div>
 
           <ChartPanel
-            title="Daily transactions"
-            subtitle="Every transaction in a sealed block"
+            title="Transactions each day"
+            subtitle="Everything the chain processed"
               legend={[{ name: 'Transactions', color: 'var(--chart-4)' }]}
             badge={`Peak ${fmtCount(peakTx)}`}
             caption={<React.Fragment>
-              <b>Chain load over time.</b> The peak on {peakTxDay || 'n/a'} coincides
-              with the tournament window, when relayers were batching hardest.
+              <b>How much work the chain is doing.</b> The peak on {peakTxDay || 'n/a'}
+               was during the World Cup, when the prediction app was busiest.
             </React.Fragment>}
           >
             {(w, h) => (
@@ -99,13 +99,13 @@
 
           <div className="grid grid-2" style={{ marginTop: 16 }}>
             <ChartPanel
-              title="Distinct signers"
-              subtitle="Daily and trailing 30 day"
+              title="Wallets sending transactions"
+              subtitle="Each day, and over the previous 30 days"
               legend={[{ name: 'Trailing 30 day', color: 'var(--chart-2)' }, { name: 'Daily', color: 'var(--chart-3)' }]}
               caption={<React.Fragment>
-                <b>A burst of fresh addresses on 8 and 9 July distorts the rolling line.</b>{' '}
-                Roughly 2,950 addresses appeared across those two days and then stopped,
-                which is why the 30 day line falls away in August as they age out.
+                <b>A one off burst on 8 and 9 July skews the 30 day line.</b> About 2,950
+                new wallets appeared over those two days and were never seen again. The
+                30 day line drops in August simply because they fall out of the window.
               </React.Fragment>}
               height={250}
             >
@@ -123,13 +123,13 @@
             </ChartPanel>
 
             <ChartPanel
-              title="Distinct recipients"
-              subtitle="Unique destination addresses"
+              title="Contracts being used"
+              subtitle="Where transactions were sent"
               legend={[{ name: 'Recipients', color: 'var(--chart-5)' }]}
               caption={<React.Fragment>
-                <b>How many contracts and accounts the chain touches each day.</b> A
-                steadier line than senders, because contract destinations do not rotate
-                the way operator wallets do.
+                <b>How many different places transactions went each day.</b> Steadier than
+                the sender line, because apps keep the same contract addresses while they
+                rotate the wallets they send from.
               </React.Fragment>}
               height={250}
             >
@@ -146,20 +146,20 @@
 
           <div className="grid grid-2" style={{ marginTop: 16 }}>
             <TablePanel
-              title="Busiest senders"
-              subtitle="All time"
+              title="Wallets sending the most"
+              subtitle="Since launch"
               badge={`${c.top_senders.length} rows`}
               caption={<React.Fragment>
-                <b>These are operator wallets, not users.</b> The even spread of counts
-                across the leaders is the signature of a rotating relayer pool.
+                <b>These belong to apps, not people.</b> Notice how similar the top counts
+                are: that is one app taking turns across a pool of its own wallets.
               </React.Fragment>}
             >
               <table className="datatable">
                 <thead>
                   <tr>
                     <th>Address</th>
-                    <th className="num">Transactions</th>
-                    <th className="num col-hide-sm">Share</th>
+                    <th className="num">Transactions sent</th>
+                    <th className="num col-hide-sm">Share of all traffic</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -188,19 +188,20 @@
             </TablePanel>
 
             <TablePanel
-              title="Monthly"
-              subtitle="Calendar month"
+              title="Month by month"
+              subtitle="Whole calendar months"
               caption={<React.Fragment>
-                <b>Signer counts by month.</b> Useful as a load trend. It is not a user
-                count, for the reason set out at the top of this page.
+                <b>Wallet counts by month.</b> Useful for seeing how busy the chain has
+                become. It is still not a count of people, for the reason at the top of
+                this page.
               </React.Fragment>}
             >
               <table className="datatable">
                 <thead>
                   <tr>
                     <th>Month</th>
-                    <th className="num">Distinct signers</th>
-                    <th className="num">Transactions</th>
+                    <th className="num">Wallets active</th>
+                    <th className="num">Transactions sent</th>
                   </tr>
                 </thead>
                 <tbody>

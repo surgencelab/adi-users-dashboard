@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PredictStreet users</title>
-  <link rel="stylesheet" href="styles.css?v=1" />
+  <link rel="stylesheet" href="styles.css?v=2" />
 </head>
 <body data-theme="light" data-aesthetic="institutional" data-density="cozy">
   <script>
@@ -31,9 +31,9 @@
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
   <script src="https://unpkg.com/html-to-image@1.11.13/dist/html-to-image.js"></script>
 
-  <script type="text/babel" src="charts.jsx?v=1"></script>
-  <script type="text/babel" src="widgets.jsx?v=1"></script>
-  <script type="text/babel" src="adi.jsx?v=1"></script>
+  <script type="text/babel" src="charts.jsx?v=2"></script>
+  <script type="text/babel" src="widgets.jsx?v=2"></script>
+  <script type="text/babel" src="adi.jsx?v=2"></script>
 
   <script type="text/babel" data-presets="env,react">
     function lastComplete(rows) {
@@ -67,48 +67,47 @@
           <div className="panel" style={{ marginBottom: 16 }}>
             <PanelHead title="How these users are counted" />
             <div className="panel-caption">
-              <b>Every account gets its own vault contract, so users are countable exactly.</b>{' '}
-              The factory emits <code>VaultCreated</code> once per account, and every later
-              event names that vault. Vaults are plain contracts, not smart accounts:{' '}
-              {ps.vaults_that_sent_txs === 0
-                ? 'not one of them has ever sent a transaction'
-                : `${fmtCount(ps.vaults_that_sent_txs)} have sent a transaction`}
-              , which is why these counts come from event topics rather than senders.
+              <b>PredictStreet gives every person their own account on the chain, so we can count people exactly.</b>{' '}
+              Each of those accounts is created once and then named in everything that
+              person does afterwards. The accounts never send transactions themselves
+              {ps.vaults_that_sent_txs === 0 ? '' : ` (well, ${fmtCount(ps.vaults_that_sent_txs)} have)`},
+              so we read activity from the records the app writes, not from who paid the
+              transaction fee.
             </div>
           </div>
 
           <div className="grid grid-4" style={{ marginBottom: 16 }}>
-            <Metric label="Registered users" value={fmtCount(ps.registered_total)}
-              footer="Cumulative vaults created" />
-            <Metric label="MAU, 30 day rolling" value={fmtCount(last.mau)}
-              footer={`Peak ${fmtCount(peakMau)}`} />
-            <Metric label={`DAU on ${last.date}`} value={fmtCount(last.dau)}
-              footer={`Peak ${fmtCount(peakDau)} on ${peakDauDay || 'n/a'}`} />
-            <Metric label="Visible to a signer count" value={fmtPct(ps.signer_visible_pct, 2)}
-              footer={`${fmtCount(ps.owners_that_self_signed)} owners ever self-signed`} />
+            <Metric label="Total sign-ups" value={fmtCount(ps.registered_total)}
+              footer="Everyone who has ever signed up" />
+            <Metric label="Used it in the last 30 days" value={fmtCount(last.mau)}
+              footer={`Best 30 day stretch so far: ${fmtCount(peakMau)}`} />
+            <Metric label={`Used it on ${last.date}`} value={fmtCount(last.dau)}
+              footer={`Busiest day ever: ${fmtCount(peakDau)} on ${peakDauDay || 'n/a'}`} />
+            <Metric label="Would show up in a wallet count" value={fmtPct(ps.signer_visible_pct, 2)}
+              footer={`Only ${fmtCount(ps.owners_that_self_signed)} people have sent a transaction themselves`} />
           </div>
 
           <div className="grid grid-4" style={{ marginBottom: 16 }}>
-            <Metric label="Activation" value={fmtPct(activation, 1)}
-              footer="MAU divided by registered users" />
-            <Metric label="Stickiness" value={stickiness === null ? 'n/a' : fmtPct(stickiness, 2)}
-              footer="DAU divided by MAU" />
-            <Metric label="Active this month"
+            <Metric label="Came back to use it" value={fmtPct(activation, 1)}
+              footer="Share of sign-ups active in the last 30 days" />
+            <Metric label="Use it on a given day" value={stickiness === null ? 'n/a' : fmtPct(stickiness, 2)}
+              footer="Of this month's users, the share active on a typical day" />
+            <Metric label="Used it this calendar month"
               value={currentMonth ? fmtCount(currentMonth.mau) : 'n/a'}
-              footer={currentMonth ? `Calendar month ${currentMonth.month}` : 'n/a'} />
-            <Metric label="Distinct owners" value={fmtCount(ps.distinct_owners)}
-              footer="One vault per owner address" />
+              footer={currentMonth ? `${currentMonth.month} so far` : 'n/a'} />
+            <Metric label="Separate people" value={fmtCount(ps.distinct_owners)}
+              footer="One account each, no duplicates" />
           </div>
 
           <ChartPanel
-            title="Active users"
-            subtitle="Daily and trailing 30 day"
+            title="People using PredictStreet"
+            subtitle="Each day, and over the previous 30 days"
               legend={[{ name: 'MAU (30d)', color: 'var(--chart-2)' }, { name: 'DAU', color: 'var(--chart-3)' }]}
             badge={`${fmtCount(s.length)} days`}
             caption={<React.Fragment>
-              <b>The rolling MAU lags reality by design.</b> It still carries the
-              tournament weeks forward, so read the daily line for where engagement
-              sits now and the monthly table below for a clean month boundary.
+              <b>The 30 day line is slow to react.</b> It still counts people from the
+              World Cup weeks. For what is happening now, read the daily line, or the
+              month by month table further down.
             </React.Fragment>}
           >
             {(w, h) => (
@@ -127,13 +126,13 @@
           <div className="grid grid-2" style={{ marginTop: 16 }}>
             <ChartPanel
               title="Registrations"
-              subtitle="New vaults per day"
+              subtitle="New people each day"
               legend={[{ name: 'New users', color: 'var(--chart-1)' }]}
               badge={`Peak ${fmtCount(peakReg)}`}
               caption={<React.Fragment>
-                <b>Acquisition, not retention.</b> Peak signups landed on{' '}
-                {peakRegDay || 'n/a'}. A registration is a one time event, so this
-                says nothing about whether those accounts came back.
+                <b>This shows people arriving, not staying.</b> The busiest day for
+                sign-ups was {peakRegDay || 'n/a'}. Signing up happens once, so this
+                chart cannot tell you whether anyone came back.
               </React.Fragment>}
               height={250}
             >
@@ -148,12 +147,13 @@
             </ChartPanel>
 
             <ChartPanel
-              title="On-chain actions"
-              subtitle="Events attributable to a vault"
+              title="Things people did"
+              subtitle="Actions we can trace to a person"
               legend={[{ name: 'Actions', color: 'var(--chart-4)' }]}
               caption={<React.Fragment>
-                <b>Volume of activity, not people.</b> A single user can generate many
-                events in a session, so this rises and falls faster than the user count.
+                <b>This counts actions, not people.</b> One person can do many things in
+                a single visit, so this moves up and down more sharply than the number
+                of users does.
               </React.Fragment>}
               height={250}
             >
@@ -170,20 +170,20 @@
 
           <div className="grid grid-2" style={{ marginTop: 16 }}>
             <TablePanel
-              title="Monthly"
-              subtitle="Calendar month"
+              title="Month by month"
+              subtitle="Whole calendar months"
               caption={<React.Fragment>
-                <b>The cleaner read on engagement.</b> Unlike the rolling window,
-                a calendar month cannot borrow activity from the previous one.
+                <b>The clearest view of how usage is trending.</b> Each month stands on
+                its own and cannot borrow activity from the month before.
               </React.Fragment>}
             >
               <table className="datatable">
                 <thead>
                   <tr>
                     <th>Month</th>
-                    <th className="num">Active users</th>
-                    <th className="num">New users</th>
-                    <th className="num col-hide-sm">Active per new</th>
+                    <th className="num">People who used it</th>
+                    <th className="num">New sign-ups</th>
+                    <th className="num col-hide-sm">Users per sign-up</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -202,18 +202,18 @@
             </TablePanel>
 
             <TablePanel
-              title="Event mix"
-              subtitle="By selector"
+              title="What the app records"
+              subtitle="Types of on-chain record"
               badge={`${ps.event_mix.length} events`}
               caption={<React.Fragment>
-                <b>The contracts are unverified, so events are shown by selector.</b>{' '}
-                Attribution does not depend on naming them: any indexed topic matching
-                a known vault counts as that user acting.
+                <b>PredictStreet has not published its code, so we cannot put names to
+                these record types.</b> That does not affect the user counts: whenever a
+                record mentions someone's account, we count that person as active.
               </React.Fragment>}
             >
               <table className="datatable">
                 <thead>
-                  <tr><th>Event selector</th><th className="num">Occurrences</th><th className="num col-hide-sm">Share</th></tr>
+                  <tr><th>Record type</th><th className="num">Times recorded</th><th className="num col-hide-sm">Share</th></tr>
                 </thead>
                 <tbody>
                   {ps.event_mix.map(e => {

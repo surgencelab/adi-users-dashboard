@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ADI active users</title>
-  <link rel="stylesheet" href="styles.css?v=1" />
+  <link rel="stylesheet" href="styles.css?v=2" />
 </head>
 <body data-theme="light" data-aesthetic="institutional" data-density="cozy">
   <script>
@@ -31,9 +31,9 @@
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
   <script src="https://unpkg.com/html-to-image@1.11.13/dist/html-to-image.js"></script>
 
-  <script type="text/babel" src="charts.jsx?v=1"></script>
-  <script type="text/babel" src="widgets.jsx?v=1"></script>
-  <script type="text/babel" src="adi.jsx?v=1"></script>
+  <script type="text/babel" src="charts.jsx?v=2"></script>
+  <script type="text/babel" src="widgets.jsx?v=2"></script>
+  <script type="text/babel" src="adi.jsx?v=2"></script>
 
   <script type="text/babel" data-presets="env,react">
     function lastComplete(rows) {
@@ -63,38 +63,39 @@
           <div className="panel" style={{ marginBottom: 16 }}>
             <PanelHead title="Why these numbers are not signer counts" />
             <div className="panel-caption">
-              <b>Counting transaction signers would miss almost everyone.</b>{' '}
+              <b>Counting wallets that send transactions would miss almost every user.</b>{' '}
               {ps ? (
                 <React.Fragment>
-                  PredictStreet relays user actions through a small pool of operator
-                  wallets, and its per-user vaults never send transactions themselves.
-                  Of {fmtCount(ps.distinct_owners)} registered users, only{' '}
-                  {fmtCount(ps.owners_that_self_signed)} have ever signed a transaction
-                  directly, which is {fmtPct(ps.signer_visible_pct, 2)}. The rest are
-                  invisible to a signer count but fully visible at the vault level.
+                  When someone uses PredictStreet, the app sends the transaction for
+                  them from its own wallets. So the wallet on the transaction is the
+                  app, not the person. Out of {fmtCount(ps.distinct_owners)} people
+                  signed up, only {fmtCount(ps.owners_that_self_signed)} have ever sent
+                  a transaction themselves, which is {fmtPct(ps.signer_visible_pct, 2)}.
+                  We count people instead by the personal account that PredictStreet
+                  creates for each of them.
                 </React.Fragment>
               ) : (
-                'PredictStreet relays user actions through operator wallets, so the signer count measures infrastructure rather than people.'
+                'PredictStreet sends transactions on behalf of its users, so counting wallets counts the app, not people.'
               )}{' '}
-              <a href="methodology.html" style={{ color: 'var(--orange)' }}>How this is measured</a>
+              <a href="methodology.html" style={{ color: 'var(--orange)' }}>Read how we count</a>
             </div>
           </div>
 
           <div className="grid grid-4" style={{ marginBottom: 16 }}>
-            <Metric label="PredictStreet registered users"
+            <Metric label="PredictStreet sign-ups"
               value={fmtCount(ps ? ps.registered_total : null)}
-              footer="Cumulative user vaults created" />
-            <Metric label="PredictStreet MAU"
+              footer="Total people who have signed up" />
+            <Metric label="PredictStreet users this month"
               value={fmtCount(psLast ? psLast.mau : null)}
-              footer={`Trailing ${d.meta.rolling_window_days} day unique vaults`} />
-            <Metric label="PredictStreet DAU"
+              footer={`People active in the last ${d.meta.rolling_window_days} days`} />
+            <Metric label="PredictStreet users yesterday"
               value={fmtCount(psLast ? psLast.dau : null)}
-              footer={`Peak ${fmtCount(peakDau)} in the last 30 days`} />
-            <Metric label="Staking participants"
+              footer={`People active that day. Busiest recent day: ${fmtCount(peakDau)}`} />
+            <Metric label="People staking ADI"
               value={fmtCount(st ? st.unique_stakers : null)}
               footer={st && st.total_staked_usd
                 ? `${fmtUSD(st.total_staked_usd)} staked on Ethereum`
-                : 'Unique stakers on Ethereum'} />
+                : 'People who have staked ADI'} />
           </div>
 
           <p className="page-subtitle" style={{ margin: '-6px 0 16px' }}>
@@ -103,30 +104,31 @@
           </p>
 
           <div className="grid grid-4" style={{ marginBottom: 16 }}>
-            <Metric label="Activation rate"
+            <Metric label="Came back to use it"
               value={activation === null ? 'n/a' : fmtPct(activation, 1)}
-              footer="MAU divided by registered users" />
-            <Metric label="Stickiness"
+              footer="Share of signed-up people who were active in the last 30 days" />
+            <Metric label="Use it on a given day"
               value={stickiness === null ? 'n/a' : fmtPct(stickiness, 2)}
-              footer="DAU divided by MAU" />
-            <Metric label="ADI Chain transactions"
+              footer="Of the people active this month, the share who show up on a given day" />
+            <Metric label="Transactions on ADI Chain"
               value={fmtCount(chain.total_txs)}
-              footer="All time since genesis" />
-            <Metric label="Distinct signers all time"
+              footer="Every transaction since the chain launched" />
+            <Metric label="Wallets sending transactions"
               value={fmtCount(chain.total_distinct_senders)}
-              footer="Every address that ever sent a transaction" />
+              footer="Wallets that have ever sent a transaction. Mostly the app, not people" />
           </div>
 
           {ps && (
             <ChartPanel
-              title="Registered users against active users"
+              title="Sign-ups compared with people actually using it"
               subtitle="PredictStreet"
               badge={`${fmtCount(ps.series.length)} days`}
               legend={[{ name: 'Registered (cumulative)', color: 'var(--chart-1)' }, { name: 'MAU (30d)', color: 'var(--chart-2)' }, { name: 'DAU', color: 'var(--chart-3)' }]}
               caption={<React.Fragment>
-                <b>Signups ran far ahead of usage.</b> Registration is a one time
-                event, so the cumulative line only rises. Whether those accounts
-                came back is the gap between it and the two active-user lines.
+                <b>Far more people signed up than kept using it.</b> The top line is
+                everyone who has ever signed up, so it only ever goes up. The two lower
+                lines are people who actually did something. The gap between them is
+                the part that matters.
               </React.Fragment>}
             >
               {(w, h) => (
@@ -147,13 +149,13 @@
           <div className="grid grid-2" style={{ marginTop: 16 }}>
             {ps && (
               <ChartPanel
-                title="New registrations per day"
+                title="New sign-ups each day"
                 subtitle="VaultCreated events"
               legend={[{ name: 'New users', color: 'var(--chart-1)' }]}
                 caption={<React.Fragment>
-                  <b>Signups per day, from VaultCreated events.</b> The shape tracks
-                  the World Cup, which is what makes the trailing MAU look healthier
-                  than current engagement is.
+                  <b>How many people signed up each day.</b> The spike is the World
+                  Cup. Because those sign-ups were recent, the 30 day figure still looks
+                  healthy even though daily use has dropped right off.
                 </React.Fragment>}
                 height={240}
               >
@@ -169,12 +171,13 @@
             )}
 
             <ChartPanel
-              title="ADI Chain throughput"
+              title="How busy the chain is"
               subtitle="Transactions per day"
               legend={[{ name: 'Transactions', color: 'var(--chart-4)' }]}
               caption={<React.Fragment>
-                <b>Volume is not users.</b> Transaction count rises with relayer
-                batching, so read it as chain load rather than as demand.
+                <b>This counts transactions, not people.</b> The app bundles many
+                user actions into its own transactions, so a busy chart means a busy
+                chain, not necessarily more users.
               </React.Fragment>}
               height={240}
             >
@@ -192,13 +195,13 @@
           {st && st.leaderboard && st.leaderboard.length > 0 && (
             <div className="grid grid-2" style={{ marginTop: 16 }}>
               <ChartPanel
-                title="Staking concentration"
-                subtitle="Share of staked ADI"
+                title="Who owns the staked ADI"
+                subtitle="Share held by each wallet"
                 badge={`${st.unique_stakers} stakers`}
                 caption={<React.Fragment>
-                  <b>One address holds most of the pool.</b> With only{' '}
-                  {st.unique_stakers} participants, the programme total is not a
-                  measure of broad participation.
+                  <b>One wallet holds most of it.</b> Only {st.unique_stakers} people
+                  have staked at all, so the total tells you about a handful of
+                  decisions rather than broad interest.
                 </React.Fragment>}
                 height={260}
               >
@@ -222,13 +225,12 @@
               </ChartPanel>
 
               <ChartPanel
-                title="Cumulative stakers"
+                title="How many people have staked"
                 subtitle="ADI HODLER programme"
               legend={[{ name: 'Cumulative stakers', color: 'var(--chart-5)' }]}
                 caption={<React.Fragment>
-                  <b>Participation stalled after the opening week.</b> The programme
-                  opened on {st.series[0] ? st.series[0].date : 'n/a'} and has added
-                  very few addresses since.
+                  <b>Almost nobody joined after the first week.</b> Staking opened on{' '}
+                  {st.series[0] ? st.series[0].date : 'n/a'} and has barely grown since.
                 </React.Fragment>}
                 height={260}
               >

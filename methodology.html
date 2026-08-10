@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Methodology</title>
-  <link rel="stylesheet" href="styles.css?v=1" />
+  <link rel="stylesheet" href="styles.css?v=2" />
 </head>
 <body data-theme="light" data-aesthetic="institutional" data-density="cozy">
   <script>
@@ -31,9 +31,9 @@
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
   <script src="https://unpkg.com/html-to-image@1.11.13/dist/html-to-image.js"></script>
 
-  <script type="text/babel" src="charts.jsx?v=1"></script>
-  <script type="text/babel" src="widgets.jsx?v=1"></script>
-  <script type="text/babel" src="adi.jsx?v=1"></script>
+  <script type="text/babel" src="charts.jsx?v=2"></script>
+  <script type="text/babel" src="widgets.jsx?v=2"></script>
+  <script type="text/babel" src="adi.jsx?v=2"></script>
 
   <script type="text/babel" data-presets="env,react">
     function Row({ label, value, mono }) {
@@ -55,11 +55,11 @@
           <div className="panel" style={{ marginBottom: 16 }}>
             <PanelHead title="What counts as a user" />
             <div className="panel-caption">
-              <b>The question this dashboard answers is how many people use ADI, not how
-              many addresses touch it.</b> On this chain those are very different numbers.
+              <b>This dashboard counts people, not wallets.</b> On ADI Chain those are very
+               different numbers, and the difference is large enough to change the story.
             </div>
             <div className="panel-body">
-              <h3 style={{ marginTop: 0 }}>The problem with signer counts</h3>
+              <h3 style={{ marginTop: 0 }}>Why counting wallets does not work</h3>
               <p>
                 The obvious way to measure active addresses on an EVM chain is to count
                 distinct transaction senders per day. On ADI Chain that number is close to
@@ -85,7 +85,7 @@
                 </p>
               )}
 
-              <h3>Where the users actually are</h3>
+              <h3>How we count people instead</h3>
               <p>
                 One level down, each account gets its own contract. The factory at{' '}
                 <code>{c.predictstreet_vault_factory}</code> emits{' '}
@@ -117,7 +117,7 @@
                 That survives contract upgrades and events we have not identified by name.
               </p>
 
-              <h3>How the staking figures are derived</h3>
+              <h3>How we work out the staking numbers</h3>
               <p>
                 The <code>Staked</code> event carries the principal in its first non-indexed
                 word and a lock-boosted figure in the second. Two independent checks confirm
@@ -131,7 +131,7 @@
                 so a same-ticker token cannot be picked up by mistake.
               </p>
 
-              <h3>Known limits</h3>
+              <h3>What these numbers cannot tell you</h3>
               <ul>
                 <li>
                   An account that registers but never trades still counts as registered. The
@@ -157,15 +157,15 @@
 
           <div className="grid grid-2">
             <TablePanel
-              title="Contracts"
-              subtitle="Addresses this dashboard reads"
+              title="Contracts we read"
+              subtitle="Where the data comes from on chain"
               caption={<React.Fragment>
-                <b>Read from the runtime configuration served by the ADI staking app.</b>{' '}
-                None are published in the public documentation, and none are verified.
+                <b>We found these by reading the ADI staking app's own settings.</b> None of
+                them appear in ADI's public documentation, and none have published code.
               </React.Fragment>}
             >
               <table className="datatable">
-                <thead><tr><th>Contract</th><th>Address</th></tr></thead>
+                <thead><tr><th>What it does</th><th>Address on chain</th></tr></thead>
                 <tbody>
                   <Row label="PredictStreet settlement (ADI)" value={c.predictstreet_settlement} mono />
                   <Row label="PredictStreet vault factory (ADI)" value={c.predictstreet_vault_factory} mono />
@@ -176,15 +176,16 @@
             </TablePanel>
 
             <TablePanel
-              title="Sources and limits"
-              subtitle="Where the data comes from"
+              title="Sources"
+              subtitle="What we connect to"
               caption={<React.Fragment>
-                <b>ADI Chain is not indexed by Dune, so this pipeline builds its own index.</b>{' '}
-                The Ethereum side is cross-checked against Dune and the two agree exactly.
+                <b>No third party indexes ADI Chain, so we read the chain ourselves.</b> The
+                Ethereum staking figures are checked twice, once directly and once through
+                Dune, and both agree exactly.
               </React.Fragment>}
             >
               <table className="datatable">
-                <thead><tr><th>Item</th><th>Detail</th></tr></thead>
+                <thead><tr><th>Item</th><th>Value</th></tr></thead>
                 <tbody>
                   <Row label="ADI Chain RPC" value={d.meta.adi_rpc} mono />
                   <Row label="ADI Chain explorer" value={d.meta.adi_explorer} mono />
@@ -201,10 +202,10 @@
           </div>
 
           <div className="panel" style={{ marginTop: 16 }}>
-            <PanelHead title="Refreshing" />
+            <PanelHead title="How often this updates" />
             <div className="panel-caption">
-              <b>One command rebuilds everything.</b> The block scan is incremental, so
-              routine refreshes only pull new blocks.
+              <b>The numbers refresh automatically every day.</b> Each run only reads what
+              is new, so it takes about two minutes.
             </div>
             <div className="panel-body">
               <p>
