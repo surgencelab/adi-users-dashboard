@@ -3,8 +3,9 @@
  * Everything registers on window, matching the SDK convention.
  */
 
-/* Chart watermark. The SDK ships "DATUM LABS · DEMO" hardcoded, which does not
- * belong on a delivered dashboard. Set to '' to remove it entirely. */
+/* Chart watermark for this dashboard only. The SDK keeps its own
+ * "DATUM LABS · DEMO" default; this override is not upstreamed.
+ * Set to '' to remove the watermark entirely. */
 window.CHART_WATERMARK = 'SURGENCE RESEARCH';
 
 const ADI_NAV = [

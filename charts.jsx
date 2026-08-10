@@ -27,10 +27,11 @@ window.fmtUSD = fmtUSD; window.fmtNum = fmtNum; window.fmtPct = fmtPct;
 
 // ── AreaChart ────────────────────────────────────────────
 // ── Chart watermark ─────────────────────────────────────
-// Local deviation from the SDK: the watermark text was hardcoded to
-// "DATUM LABS · DEMO", which is wrong on a delivered dashboard. Now overridable
-// via window.CHART_WATERMARK, defaulting to the SDK's own string so existing
-// dashboards are unaffected. Worth upstreaming into the kit.
+// LOCAL TO THIS DASHBOARD. Do not upstream.
+// The SDK hardcodes the watermark to "DATUM LABS · DEMO" and stays that way.
+// This copy makes the text overridable via window.CHART_WATERMARK so this
+// dashboard can carry the Surgence Research mark, and it falls back to the
+// SDK's own string if nothing sets it. Keep this change inside this project.
 function ChartWatermark({ x, y }) {
   const label = (typeof window !== 'undefined' && window.CHART_WATERMARK) || 'DATUM LABS · DEMO';
   if (!label) return null;
