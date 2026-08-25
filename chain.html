@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ADI Chain activity</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-  <link rel="stylesheet" href="styles.css?v=6" />
+  <link rel="stylesheet" href="styles.css?v=7" />
 </head>
 <body data-theme="light" data-aesthetic="institutional" data-density="cozy">
   <script>
@@ -29,9 +29,9 @@
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
   <script src="https://unpkg.com/html-to-image@1.11.13/dist/html-to-image.js"></script>
 
-  <script type="text/babel" src="charts.jsx?v=6"></script>
-  <script type="text/babel" src="widgets.jsx?v=6"></script>
-  <script type="text/babel" src="adi.jsx?v=6"></script>
+  <script type="text/babel" src="charts.jsx?v=7"></script>
+  <script type="text/babel" src="widgets.jsx?v=7"></script>
+  <script type="text/babel" src="adi.jsx?v=7"></script>
 
   <script type="text/babel" data-presets="env,react">
     function lastComplete(rows) {
@@ -49,6 +49,8 @@
       const top10 = c.top_senders.slice(0, 10).reduce((a, s) => a + s.txs, 0);
       const top10Share = c.total_txs ? (top10 / c.total_txs) * 100 : 0;
       const ps = d.predictstreet;
+      const h = c.holders;
+      const e = c.ethereum_token;
 
       return (
         <React.Fragment>
@@ -62,6 +64,105 @@
               For actual people, use the PredictStreet and Staking pages.
             </div>
           </div>
+
+          {h && (
+            <div className="grid grid-4" style={{ marginBottom: 16 }}>
+              <Metric label="Addresses holding ADI" value={fmtCount(h.holders)}
+                footer={`Checked every one of ${fmtCount(h.addresses_checked)} known addresses`} />
+              <Metric label="ADI held on this chain"
+                value={fmtCount(h.adi_held) + ' ADI'}
+                footer={`${fmtPct(h.pct_of_total_supply, 3)} of the 1,000,000,000 total supply`} />
+              <Metric label="Typical holding"
+                value={h.median < 1 ? h.median.toFixed(4) + ' ADI' : fmtCount(h.median) + ' ADI'}
+                footer={`${fmtCount(h.buckets.under_1)} addresses hold less than 1 ADI`} />
+              <Metric label="Held by the top ten" value={fmtPct(h.top10_pct, 1)}
+                footer={`${fmtCount(h.top10_adi)} ADI in ten addresses`} />
+            </div>
+          )}
+
+          {h && (
+            <div className="panel" style={{ marginBottom: 16 }}>
+              <PanelHead title="Almost all of these holders hold dust"
+                subtitle={`measured at block ${fmtCount(h.block)}`} />
+              <div className="panel-caption">
+                <b>{fmtCount(h.buckets.under_1)} of {fmtCount(h.holders)} addresses hold
+                less than one ADI.</b> They were funded with just enough to pay for a
+                transaction, not because someone chose to hold ADI here. The real
+                balance sits in ten addresses, which between them hold{' '}
+                {fmtPct(h.top10_pct, 1)} of all ADI on the chain.
+              </div>
+              <div className="panel-body flush">
+                <table className="datatable">
+                  <thead>
+                    <tr><th>Size of holding</th><th className="num">Addresses</th><th className="num col-hide-sm">Share of holders</th></tr>
+                  </thead>
+                  <tbody>
+                    {[['Less than 1 ADI','under_1'],['1 to 10 ADI','1_to_10'],
+                      ['10 to 100 ADI','10_to_100'],['100 to 1,000 ADI','100_to_1k'],
+                      ['More than 1,000 ADI','over_1k']].map(([label,key]) => (
+                      <tr key={key}>
+                        <td>{label}</td>
+                        <td className="num">{fmtCount(h.buckets[key])}</td>
+                        <td className="num col-hide-sm">{fmtPct(100 * h.buckets[key] / h.holders, 2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {e && (
+            <div className="panel" style={{ marginBottom: 16 }}>
+              <PanelHead title="ADI Chain holds a small slice of the ADI supply"
+                subtitle="the same token, not a second one" />
+              <div className="panel-caption">
+                <b>Do not add these two numbers together.</b> ADI Chain runs on the
+                Ethereum ADI token bridged across, so the ADI sitting on ADI Chain is
+                already counted inside the Ethereum total. It is a slice of the same
+                supply, not extra supply, and the holder counts are two separate
+                ledgers rather than two groups of people.
+              </div>
+              <div className="panel-body flush">
+                <table className="datatable">
+                  <thead>
+                    <tr>
+                      <th>Where</th>
+                      <th className="num">ADI</th>
+                      <th className="num">Share of supply</th>
+                      <th className="num col-hide-sm">Addresses holding</th>
+                      <th className="num col-hide-sm">Holding 1 ADI or more</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Total supply, on Ethereum</td>
+                      <td className="num">{fmtCount(e.total_adi)}</td>
+                      <td className="num">100%</td>
+                      <td className="num col-hide-sm">{fmtCount(e.holders)}</td>
+                      <td className="num col-hide-sm">{fmtCount(e.holders_over_1_adi)}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ paddingLeft: 24 }}>of which bridged to ADI Chain</td>
+                      <td className="num">{fmtCount(h ? h.adi_held : null)}</td>
+                      <td className="num">{h ? fmtPct(h.pct_of_total_supply, 3) : 'n/a'}</td>
+                      <td className="num col-hide-sm">{fmtCount(h ? h.holders : null)}</td>
+                      <td className="num col-hide-sm">
+                        {h ? fmtCount(h.holders - h.buckets.under_1) : 'n/a'}
+                      </td>
+                    </tr>
+                    <tr style={{ fontWeight: 600 }}>
+                      <td style={{ paddingLeft: 24 }}>of which stays on Ethereum</td>
+                      <td className="num">{fmtCount(h ? e.total_adi - h.adi_held : e.total_adi)}</td>
+                      <td className="num">{h ? fmtPct(100 - h.pct_of_total_supply, 3) : '100%'}</td>
+                      <td className="num col-hide-sm">n/a</td>
+                      <td className="num col-hide-sm">n/a</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-4" style={{ marginBottom: 16 }}>
             <Metric label="Transactions ever" value={fmtCount(c.total_txs)}

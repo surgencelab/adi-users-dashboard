@@ -459,6 +459,28 @@ def main():
     print("building staking series...", flush=True)
     staking = build_staking()
 
+    # ADI Chain holders, from the balance sweep. Optional: absent until
+    # index_holders.py has run, and the dashboard degrades to n/a without it.
+    holders = None
+    hp = os.path.join(DATA, "holders.json")
+    if os.path.exists(hp):
+        holders = json.load(open(hp))
+        chain["holders"] = holders
+
+    # Ethereum ERC-20 holders. Deliberately kept beside the ADI Chain figure
+    # rather than added to it: ADI Chain's native token is this same token
+    # bridged, so the L2 balance is a subset of the L1 supply, not extra supply.
+    ehp = os.path.join(DATA, "eth_holders.json")
+    if os.path.exists(ehp):
+        eth = json.load(open(ehp))
+        if holders:
+            eth["bridged_to_adi_chain"] = holders.get("adi_held")
+            eth["bridged_pct"] = round(
+                100 * (holders.get("adi_held") or 0) / eth["total_adi"], 5) \
+                if eth.get("total_adi") else None
+        out_eth = eth
+        chain["ethereum_token"] = out_eth
+
     incomplete = partial_day(block_ts)
     if incomplete:
         for section in (chain, ps):

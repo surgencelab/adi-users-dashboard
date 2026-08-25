@@ -25,6 +25,10 @@ STEPS = [
     ("blocks + transactions", "index_blocks.py"),
     ("predictstreet events", "index_predictstreet.py"),
     ("staking events", "index_staking.py"),
+    # Balance sweep for ADI Chain holders. Runs after the block index, which
+    # supplies the address universe it asks about.
+    ("adi chain holders", "index_holders.py"),
+    ("ethereum token holders", "index_eth_holders.py"),
     ("build candidate dataset", "build_dataset.py"),
     # The gate. build_dataset.py writes data.json.candidate; validate.py checks
     # it and only promotes it over data.json if every check passes. If this step
