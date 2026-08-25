@@ -21,7 +21,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from adi_rpc import get_logs, rpc, topic_to_address  # noqa: E402
+from adi_rpc import get_logs, rpc, rpc_batch, safe_head, topic_to_address  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "data")
@@ -97,6 +97,31 @@ def main():
                   open(STATE, "w"))
 
     positive = {a: b for a, b in balances.items() if b > 0}
+
+    # Cross-chain overlap. Token amounts must never be added across the two
+    # chains, since ADI Chain runs on these same tokens bridged across. Address
+    # counts are a different matter: a holding on Ethereum and one on ADI Chain
+    # are separate ledger entries even for the same key, so they do combine once
+    # the addresses present on both are counted once. Checking the Ethereum
+    # holders against ADI Chain gives that intersection directly, and is far
+    # cheaper than persisting the whole ADI Chain holder set.
+    overlap = 0
+    try:
+        l2_head = safe_head(verbose=False)
+        l2_blk = hex(l2_head)
+        addrs = sorted(positive)
+        print(f"\nchecking {len(addrs):,} Ethereum holders against ADI Chain", flush=True)
+        for i in range(0, len(addrs), 300):
+            chunk = addrs[i:i + 300]
+            for r in rpc_batch([("eth_getBalance", [a, l2_blk]) for a in chunk]):
+                if r and int(r, 16) > 0:
+                    overlap += 1
+        print(f"  {overlap:,} hold ADI on both chains", flush=True)
+    except Exception as e:
+        print(f"  overlap check failed ({e}); cross-chain total will be omitted",
+              flush=True)
+        overlap = None
+
     total_wei = sum(positive.values())
     vals = sorted(positive.values(), reverse=True)
     n = len(vals)
@@ -112,6 +137,7 @@ def main():
         "total_adi": round(total_wei / 1e18, 4),
         "top10_adi": round(sum(vals[:10]) / 1e18, 4),
         "top10_pct": round(100 * sum(vals[:10]) / total_wei, 3) if total_wei else 0,
+        "holders_on_both_chains": overlap,
         "top_holders": [{"address": a, "adi": round(b / 1e18, 4),
                          "pct": round(100 * b / total_wei, 4)}
                         for a, b in sorted(positive.items(), key=lambda kv: -kv[1])[:15]],

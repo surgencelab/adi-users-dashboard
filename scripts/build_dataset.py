@@ -478,8 +478,18 @@ def main():
             eth["bridged_pct"] = round(
                 100 * (holders.get("adi_held") or 0) / eth["total_adi"], 5) \
                 if eth.get("total_adi") else None
-        out_eth = eth
-        chain["ethereum_token"] = out_eth
+        # Distinct addresses holding ADI anywhere. Addresses combine, tokens
+        # do not: the same key on two chains is two ledger entries, but the
+        # tokens behind them are one bridged supply.
+        ov = eth.get("holders_on_both_chains")
+        if holders and ov is not None:
+            eth["cross_chain"] = {
+                "ethereum_only": eth["holders"] - ov,
+                "both_chains": ov,
+                "adi_chain_only": holders["holders"] - ov,
+                "distinct_addresses": eth["holders"] + holders["holders"] - ov,
+            }
+        chain["ethereum_token"] = eth
 
     incomplete = partial_day(block_ts)
     if incomplete:

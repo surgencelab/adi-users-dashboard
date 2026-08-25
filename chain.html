@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ADI Chain activity</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-  <link rel="stylesheet" href="styles.css?v=7" />
+  <link rel="stylesheet" href="styles.css?v=8" />
 </head>
 <body data-theme="light" data-aesthetic="institutional" data-density="cozy">
   <script>
@@ -29,9 +29,9 @@
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
   <script src="https://unpkg.com/html-to-image@1.11.13/dist/html-to-image.js"></script>
 
-  <script type="text/babel" src="charts.jsx?v=7"></script>
-  <script type="text/babel" src="widgets.jsx?v=7"></script>
-  <script type="text/babel" src="adi.jsx?v=7"></script>
+  <script type="text/babel" src="charts.jsx?v=8"></script>
+  <script type="text/babel" src="widgets.jsx?v=8"></script>
+  <script type="text/babel" src="adi.jsx?v=8"></script>
 
   <script type="text/babel" data-presets="env,react">
     function lastComplete(rows) {
@@ -161,6 +161,48 @@
                   </tbody>
                 </table>
               </div>
+              {e.cross_chain && (
+                <React.Fragment>
+                  <div className="panel-caption" style={{ borderTop: '1px solid var(--border)' }}>
+                    <b>Addresses do add up, even though the tokens do not.</b> A holding
+                    on Ethereum and a holding on ADI Chain are separate entries, so
+                    counting each address once across both chains gives the real total.
+                    Only {fmtCount(e.cross_chain.both_chains)} addresses appear on both,
+                    so the two groups barely overlap.
+                  </div>
+                  <div className="panel-body flush">
+                    <table className="datatable">
+                      <thead>
+                        <tr><th>Holds ADI</th><th className="num">Addresses</th></tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>On Ethereum only</td>
+                          <td className="num">{fmtCount(e.cross_chain.ethereum_only)}</td>
+                        </tr>
+                        <tr>
+                          <td>On both chains</td>
+                          <td className="num">{fmtCount(e.cross_chain.both_chains)}</td>
+                        </tr>
+                        <tr>
+                          <td>On ADI Chain only</td>
+                          <td className="num">{fmtCount(e.cross_chain.adi_chain_only)}</td>
+                        </tr>
+                        <tr style={{ fontWeight: 600 }}>
+                          <td>Anywhere, counted once</td>
+                          <td className="num">{fmtCount(e.cross_chain.distinct_addresses)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="panel-caption">
+                    These are addresses, not people. One person with several wallets is
+                    counted several times. For an actual count of people, the
+                    PredictStreet page is the place to look, because that app creates
+                    exactly one account per person.
+                  </div>
+                </React.Fragment>
+              )}
             </div>
           )}
 
