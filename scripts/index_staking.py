@@ -9,6 +9,7 @@ Events on the staking contract (resolved via openchain.xyz, contract unverified)
   Staked(address,uint256,uint256,uint256,uint64)  0xe3b4924b...
   Harvested(address,uint256)                      0x121c5042...
   Claimed(address,address,uint256)                0xf7a40077...
+  Unstaked(address,uint256,uint256,address)       0x2b097553...
   Accrued(uint256,uint256,uint256)                0x08a1072a...   (no user)
   Funded(uint256,uint64,uint256)                  0x753078f4...   (no user)
 
@@ -73,9 +74,13 @@ ACTIONS = {
     "0xf7a40077ff7a04c7e61f6f26fb13774259ddf1b6bce9ecf26a8276cdd3992683": "Claimed",
     "0x08a1072afb388d5a429e5b35717dca12bcc4c7ac42d97954f9452977280c8268": "Accrued",
     "0x753078f47727e8a400868bf52d67b99a2e42f488bf6e05524e177301d55fd826": "Funded",
+    # Appeared 2026-08-20, exactly 30 days after the programme opened, when the
+    # first 30-day locks matured. Missing it made the contract balance
+    # reconciliation drift by precisely the amount withdrawn.
+    "0x2b097553e8e31a74f4b562b2f35f1d03910bddaa43e090cc0e46f205eb79e45b": "Unstaked",
 }
 # Events whose first parameter is the participant address.
-USER_EVENTS = {"Staked", "Harvested", "Claimed"}
+USER_EVENTS = {"Staked", "Harvested", "Claimed", "Unstaked"}
 
 
 def staker_of(log):
@@ -110,6 +115,11 @@ def amounts_of(log, action):
     w = data_words(log)
     if action == "Staked" and len(w) >= 2:
         return w[0] / 1e18, w[1] / 1e18
+    if action == "Unstaked" and w:
+        # Unstaked(address indexed user, uint256 amount, uint256, address):
+        # the first word is the principal returned. Later words are internal
+        # accounting values in raw units, not token amounts.
+        return w[0] / 1e18, None
     if action in ("Harvested", "Claimed") and w:
         return w[-1] / 1e18, None
     return None, None
@@ -312,9 +322,12 @@ def write_rows(rows, price=None):
     stakers = {r["staker"] for r in rows if r["action"] == "Staked" and r["staker"]}
     participants = {r["staker"] for r in rows if r["staker"]}
     staked = sum(r["amount"] or 0 for r in rows if r["action"] == "Staked")
+    unstaked = sum(r["amount"] or 0 for r in rows if r["action"] == "Unstaked")
+    staked -= unstaked
     print(f"unique stakers: {len(stakers)}   "
           f"unique participants (any action): {len(participants)}")
-    print(f"total staked: {staked:,.2f} ADI"
+    print(f"unstaked: {unstaked:,.2f} ADI")
+    print(f"total staked (net): {staked:,.2f} ADI"
           + (f"  =  ${staked * price['usd']:,.0f}" if price else ""))
     by_action = {}
     for r in rows:

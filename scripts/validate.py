@@ -183,6 +183,8 @@ def check_reconciliation(ds):
     st = ds.get("staking") or {}
     bal = st.get("contract_balance_adi")
     if bal is not None:
+        # total_staked_adi is already net of withdrawals, so the identity is
+        # principal remaining + rewards funded - rewards claimed = balance.
         expected = ((st.get("total_staked_adi") or 0)
                     + (st.get("reward_pool_adi") or 0)
                     - (st.get("rewards_claimed_adi") or 0))

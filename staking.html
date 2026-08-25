@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ADI HODLER staking</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-  <link rel="stylesheet" href="styles.css?v=8" />
+  <link rel="stylesheet" href="styles.css?v=9" />
 </head>
 <body data-theme="light" data-aesthetic="institutional" data-density="cozy">
   <script>
@@ -29,9 +29,9 @@
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js"></script>
   <script src="https://unpkg.com/html-to-image@1.11.13/dist/html-to-image.js"></script>
 
-  <script type="text/babel" src="charts.jsx?v=8"></script>
-  <script type="text/babel" src="widgets.jsx?v=8"></script>
-  <script type="text/babel" src="adi.jsx?v=8"></script>
+  <script type="text/babel" src="charts.jsx?v=9"></script>
+  <script type="text/babel" src="widgets.jsx?v=9"></script>
+  <script type="text/babel" src="adi.jsx?v=9"></script>
 
   <script type="text/babel" data-presets="env,react">
     function Staking({ d }) {
@@ -81,9 +81,9 @@
           </div>
 
           <div className="grid grid-4" style={{ marginBottom: 16 }}>
-            <Metric label="Total value staked"
+            <Metric label="Total value staked, after withdrawals"
               value={usd ? fmtUSDExact(st.total_staked_usd) : 'n/a'}
-              footer={`${fmtCount(st.total_staked_adi)} ADI from ${st.unique_stakers} wallets`} />
+              footer={`${fmtCount(st.total_staked_adi)} ADI from ${st.active_stakers} wallets, after ${fmtCount(st.total_unstaked_adi || 0)} ADI withdrawn`} />
             <Metric label="People staking"
               value={fmtCount(st.unique_stakers)}
               footer={`Wallets that have staked since ${opened}`} />
@@ -102,6 +102,11 @@
             <Metric label="Average stake"
               value={usd ? fmtUSDExact(st.avg_stake_adi * usd) : 'n/a'}
               footer={`${fmtCount(st.avg_stake_adi)} ADI. Pulled up by the one big holder`} />
+            <Metric label="Withdrawn so far"
+              value={st.total_unstaked_adi ? fmtCount(st.total_unstaked_adi) + ' ADI' : '0 ADI'}
+              footer={st.total_unstaked_adi
+                ? `From ${st.unique_stakers - st.active_stakers === 0 ? 'people who are still staking' : 'stakers'}, since the first 30 day locks matured`
+                : 'Nobody has withdrawn yet'} />
             <Metric label="Rewards taken out"
               value={usd ? fmtUSDExact(st.rewards_claimed_usd) : 'n/a'}
               footer={`${fmtCount(st.rewards_claimed_adi)} ADI claimed of the ${fmtCount(st.reward_pool_adi)} ADI set aside`} />
@@ -244,9 +249,10 @@
               title="Where the ADI sits"
               subtitle="Adding up the contract"
               caption={<React.Fragment>
-                <b>The numbers add up against the chain.</b> What people staked, plus the
-                rewards set aside, minus the rewards already taken out, equals exactly
-                what the contract holds today. That is how we know the figures are right.
+                <b>The numbers add up against the chain.</b> What people have staked
+                less what they have withdrawn, plus the rewards set aside, less the
+                rewards already taken out, equals exactly what the contract holds
+                today. That is how we know the figures are right.
               </React.Fragment>}
             >
               <table className="datatable">
@@ -256,8 +262,15 @@
                 <tbody>
                   <tr>
                     <td>Staked by people</td>
-                    <td className="num">{fmtCount(st.total_staked_adi)}</td>
-                    <td className="num">{usd ? fmtUSDExact(st.total_staked_usd) : 'n/a'}</td>
+                    <td className="num">{fmtCount(st.total_staked_gross_adi ?? st.total_staked_adi)}</td>
+                    <td className="num">
+                      {usd ? fmtUSDExact((st.total_staked_gross_adi ?? st.total_staked_adi) * usd) : 'n/a'}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>Withdrawn by stakers</td>
+                    <td className="num">{st.total_unstaked_adi ? '-' + fmtCount(st.total_unstaked_adi) : '0'}</td>
+                    <td className="num">{usd && st.total_unstaked_adi ? '-' + fmtUSDExact(st.total_unstaked_adi * usd) : 'n/a'}</td>
                   </tr>
                   <tr>
                     <td>Rewards set aside</td>

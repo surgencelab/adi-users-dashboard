@@ -353,7 +353,7 @@ def build_staking():
     daily_staked = collections.Counter()
     by_staker = collections.defaultdict(
         lambda: {"staked": 0.0, "weighted": 0.0, "harvested": 0.0,
-                 "claimed": 0.0, "stake_events": 0})
+                 "claimed": 0.0, "unstaked": 0.0, "stake_events": 0})
     counts = collections.Counter()
     for r in rows:
         counts[r["action"]] += 1
@@ -371,6 +371,12 @@ def build_staking():
             by_staker[staker]["staked"] += amt
             by_staker[staker]["weighted"] += r.get("weighted") or 0.0
             by_staker[staker]["stake_events"] += 1
+        elif r["action"] == "Unstaked":
+            # Principal returned to the staker. Netting it off matters twice
+            # over: the pool total is wrong without it, and the contract-balance
+            # reconciliation drifts by exactly the amount withdrawn.
+            by_staker[staker]["unstaked"] += amt
+            daily_staked[d] -= amt
         elif r["action"] == "Harvested":
             by_staker[staker]["harvested"] += amt
         elif r["action"] == "Claimed":
@@ -399,18 +405,19 @@ def build_staking():
             "cumulative_staked_usd": round(cum_adi * usd, 2) if usd else None,
         })
 
-    total_staked = sum(v["staked"] for v in by_staker.values())
+    total_unstaked = sum(v["unstaked"] for v in by_staker.values())
+    total_staked = sum(v["staked"] - v["unstaked"] for v in by_staker.values())
     leaderboard = sorted(
         ({"address": a,
-          "staked_adi": round(v["staked"], 4),
-          "staked_usd": round(v["staked"] * usd, 2) if usd else None,
+          "staked_adi": round(v["staked"] - v["unstaked"], 4),
+          "staked_usd": round((v["staked"] - v["unstaked"]) * usd, 2) if usd else None,
           "weighted_adi": round(v["weighted"], 4),
           "boost": round(v["weighted"] / v["staked"], 3) if v["staked"] else None,
-          "share_pct": round(100 * v["staked"] / total_staked, 2) if total_staked else 0,
+          "share_pct": round(100 * (v["staked"] - v["unstaked"]) / total_staked, 2) if total_staked else 0,
           "rewards_claimed_adi": round(v["claimed"], 6),
           "stake_events": v["stake_events"],
           "first_stake": first_stake.get(a)}
-         for a, v in by_staker.items() if v["staked"] > 0),
+         for a, v in by_staker.items() if v["staked"] - v["unstaked"] > 0),
         key=lambda r: -r["staked_adi"])
 
     claimed_total = sum(v["claimed"] for v in by_staker.values())
@@ -421,6 +428,16 @@ def build_staking():
         "event_counts": dict(counts),
         "price": price or None,
         "total_staked_adi": round(total_staked, 4),
+        # Gross is what people put in; total_staked_adi is what remains after
+        # withdrawals. The balance sheet needs gross so its column adds up.
+        "total_staked_gross_adi": round(total_staked + total_unstaked, 4),
+        "total_unstaked_adi": round(total_unstaked, 4),
+        "total_unstaked_usd": round(total_unstaked * usd, 2) if usd else None,
+        "stakers_fully_exited": sum(
+            1 for v in by_staker.values()
+            if v["staked"] > 0 and v["staked"] - v["unstaked"] <= 0),
+        "active_stakers": sum(
+            1 for v in by_staker.values() if v["staked"] - v["unstaked"] > 0),
         "total_staked_usd": round(total_staked * usd, 2) if usd else None,
         "pool_cap_adi": cap,
         "pool_cap_usd": round(cap * usd, 2) if (usd and cap) else None,
